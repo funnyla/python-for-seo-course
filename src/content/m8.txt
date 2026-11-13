@@ -1,0 +1,560 @@
+@id module-8
+@num 8
+@title Module 8: Python for GEO (AI visibility)
+@short Python for GEO
+@path module-8 › geo
+@time Week 9
+@desc Call an LLM API from Colab, detect brand and competitor mentions in AI answers, extract cited domains, calculate mention rate and share of voice per platform, and chart it with matplotlib.
+@goal Turn a pile of AI answers into honest visibility numbers: mention rates, cited domains and share of voice.
+
+@@setup
+import io
+import re
+from collections import Counter
+from urllib.parse import urlparse
+
+import pandas as pd
+
+pd.set_option("display.max_columns", 20)
+pd.set_option("display.width", 120)
+pd.set_option("display.max_colwidth", 70)
+
+AI_ANSWERS_CSV = """platform,prompt,run,answer,cited_urls
+ChatGPT,best place to buy home gym equipment in singapore,1,"Popular options in Singapore include Sweat & Co, which is known for space-saving gear for HDB flats, FitHub for budget equipment, and GymPro for commercial-grade machines.",https://www.sweatandco.sg/collections/dumbbells?utm_source=chatgpt.com | https://www.fithub.sg/?utm_source=chatgpt.com | https://www.reddit.com/r/singapore/comments/home_gym_setup/
+ChatGPT,best place to buy home gym equipment in singapore,2,"For home gym equipment, many Singapore buyers choose Sweat and Co or FitHub. Both deliver island-wide and stock dumbbells, mats and treadmills.",https://www.sweatandco.sg/?utm_source=chatgpt.com | https://www.fithub.sg/collections/all?utm_source=chatgpt.com
+ChatGPT,best place to buy home gym equipment in singapore,3,"FitHub and GymPro are two well-reviewed stores. GymPro also has a showroom where you can try machines before buying.",https://www.gympro.com.sg/showroom?utm_source=chatgpt.com | https://www.reddit.com/r/singapore/comments/home_gym_setup/
+Perplexity,best place to buy home gym equipment in singapore,1,"SWEAT & CO and GymPro are frequently recommended. Sweat & Co focuses on compact equipment for small homes.",https://www.sweatandco.sg/blog/hdb-home-gym-ideas | https://www.gympro.com.sg/ | https://www.youtube.com/watch?v=hdbgym01
+Perplexity,best place to buy home gym equipment in singapore,2,"FitHub offers the widest range at entry-level prices and frequent sales.",https://www.fithub.sg/ | https://www.hardwarezone.com.sg/forum/home-gym-thread
+Perplexity,best place to buy home gym equipment in singapore,3,"Reviewers mention sweatandco.sg for adjustable dumbbells and Fit Hub for cardio machines.",https://www.sweatandco.sg/products/adjustable-dumbbells-24kg | https://www.fithub.sg/treadmills | https://www.reddit.com/r/singapore/comments/home_gym_setup/
+Gemini,best place to buy home gym equipment in singapore,1,"You could look at FitHub or GymPro. Both have physical stores in Singapore.",https://www.fithub.sg/ | https://www.gympro.com.sg/
+Gemini,best place to buy home gym equipment in singapore,2,"FitHub is a common choice for beginners who want affordable gear.",https://www.fithub.sg/
+Gemini,best place to buy home gym equipment in singapore,3,"GymPro and Sweat & Co both sell home gym equipment, with Sweat & Co focusing on smaller spaces.",https://www.gympro.com.sg/ | https://www.sweatandco.sg/
+ChatGPT,best foldable treadmill for a small hdb flat,1,"The Sweat & Co Foldable Treadmill T200 is a popular pick for HDB flats because it folds flat and slides under a bed.",https://www.sweatandco.sg/products/foldable-treadmill-t200?utm_source=chatgpt.com
+ChatGPT,best foldable treadmill for a small hdb flat,2,"Look at the T200 from Sweat & Co or the GymPro Walk 5. Check the folded height before you buy.",https://www.sweatandco.sg/products/foldable-treadmill-t200?utm_source=chatgpt.com | https://www.gympro.com.sg/walk-5?utm_source=chatgpt.com
+ChatGPT,best foldable treadmill for a small hdb flat,3,"Sweat & Co's T200 is quiet and compact, which matters in HDB flats with neighbours below.",https://www.sweatandco.sg/products/foldable-treadmill-t200?utm_source=chatgpt.com | https://www.reddit.com/r/singapore/comments/treadmill_noise/
+Perplexity,best foldable treadmill for a small hdb flat,1,"The GymPro Walk 5 walking pad is a slim option for small flats.",https://www.gympro.com.sg/walk-5 | https://www.youtube.com/watch?v=walkpad22
+Perplexity,best foldable treadmill for a small hdb flat,2,"GymPro and Sweat and Co both sell foldable treadmills with free delivery.",https://www.gympro.com.sg/ | https://www.sweatandco.sg/collections/treadmills
+Perplexity,best foldable treadmill for a small hdb flat,3,"A walking pad suits a short gym programme at home. FitHub sells several models under S$500.",https://www.fithub.sg/walking-pads | https://www.hardwarezone.com.sg/forum/treadmill-thread
+Gemini,best foldable treadmill for a small hdb flat,1,"FitHub has budget foldable treadmills that fit small spaces.",https://www.fithub.sg/treadmills
+Gemini,best foldable treadmill for a small hdb flat,2,"Choose a treadmill with a folded height under 20cm and a motor of at least 2HP.",https://www.youtube.com/watch?v=treadmill33
+Gemini,best foldable treadmill for a small hdb flat,3,"The Gym Pro Walk 5 is often recommended for small HDB flats.",https://www.gympro.com.sg/walk-5"""
+
+answers = pd.read_csv(io.StringIO(AI_ANSWERS_CSV))
+
+BRANDS = {
+    "Sweat & Co": ["sweat & co", "sweat and co", "sweatandco"],
+    "FitHub": ["fithub", "fit hub"],
+    "GymPro": ["gympro", "gym pro"],
+}
+
+
+def mentioned(answer, brand):
+    """True if any alias of the brand appears in the answer as whole words (any capitals)."""
+    text = answer.lower()
+    for alias in BRANDS[brand]:
+        if re.search(r"\b" + re.escape(alias) + r"\b", text):
+            return True
+    return False
+
+@@lesson Calling an LLM API (in Colab)
+@@text
+Tools like Peec AI send prompts to AI platforms and record the answers. You can do a small version yourself with an **LLM API**: your code sends a prompt and gets text back. You pay per **token** (roughly ¾ of a word), so check prices before running hundreds of prompts.
+
+Three things to understand before you trust any AI-visibility number:
+
+1. **Answers change between runs.** The same prompt can mention your brand in one run and not in the next. So never report a single run. **Run each prompt several times (for example 5 to 10) and report a mention rate**: "mentioned in 6 of 10 runs (60%)".
+2. **Answers change over time**, as models are updated and web results change. Track trends week by week, not single snapshots.
+3. **API answers are not always what users see.** The ChatGPT or Gemini apps can add web search, memory and other settings that a plain API call doesn't use. Treat API results as a sample. If you use a tracking tool, check how it collects its answers.
+
+This code uses the Anthropic Python SDK to ask Claude. You need an API key from the Claude Console, saved in Colab Secrets as `ANTHROPIC_API_KEY` (see lesson 7.4).
+
+@@colab Ask Claude one prompt
+@@code
+!pip install --quiet anthropic
+
+import anthropic
+from google.colab import userdata
+
+client = anthropic.Anthropic(api_key=userdata.get("ANTHROPIC_API_KEY"))
+
+prompt = "What are the best places to buy home gym equipment in Singapore?"
+
+response = client.beta.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=2000,
+    betas=["server-side-fallback-2026-07-01"],
+    fallbacks="default",        # if this model declines a request, the API retries on a fallback model
+    messages=[{"role": "user", "content": prompt}],
+)
+
+if response.stop_reason == "refusal":
+    print("The model declined this prompt.")
+else:
+    answer = "".join(block.text for block in response.content if block.type == "text")
+    print(answer)
+
+@@colab Run each prompt several times and save the answers
+The number of API calls is **prompts × runs**. 10 prompts × 5 runs is 50 calls. Start small.
+
+@@code
+import time
+import pandas as pd
+
+prompts = [
+    "What are the best places to buy home gym equipment in Singapore?",
+    "What is the best foldable treadmill for a small HDB flat?",
+]
+RUNS = 5
+
+rows = []
+for prompt in prompts:
+    for run in range(1, RUNS + 1):
+        response = client.beta.messages.create(
+            model="claude-opus-5-5",
+            max_tokens=2000,
+            betas=["server-side-fallback-2026-07-01"],
+            fallbacks="default",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        if response.stop_reason == "refusal":
+            text = ""
+        else:
+            text = "".join(b.text for b in response.content if b.type == "text")
+        rows.append({"platform": "Claude API", "prompt": prompt, "run": run,
+                     "answer": text, "stop_reason": response.stop_reason})
+        time.sleep(1)    # be gentle with rate limits
+
+results = pd.DataFrame(rows)
+results.to_csv("ai_answers.csv", index=False)
+print(results.shape)
+results.head()
+
+@@text
+For the rest of this module, a sample of **18 AI answers** is loaded as `answers`: 2 prompts × 3 platforms × 3 runs, with the URLs each answer cited. It's fictional, but shaped like a real tracking export.
+
+@@example The sample answers
+print(answers.shape)
+print(answers.columns.tolist())
+answers[["platform", "prompt", "run", "answer"]].head(6)
+
+@@example Same prompt, same platform, different answers
+same = answers[(answers["platform"] == "ChatGPT") & (answers["prompt"] == "best place to buy home gym equipment in singapore")]
+
+for _, row in same.iterrows():          # iterrows() loops through the rows of a DataFrame
+    print(f"Run {row['run']}: {row['answer']}")
+    print()
+
+@@text
+Same prompt, same platform, three different answers: Sweat & Co appears in runs 1 and 2 but not in run 3. If you had only checked once, you might have reported 0% or 100%.
+
+@@tip
+When AI writes LLM-tracking code, check: **(1)** the key comes from Secrets, not the code, **(2)** each prompt runs **several times** and every run is saved, not just the last one, **(3)** failed or declined calls are recorded (an empty answer is not the same as "no mention"), **(4)** the model name and date are saved with each answer, so you can explain changes later.
+
+@@quiz
+You ran a prompt once and your brand wasn't mentioned. What is the honest conclusion?
+@@option
+The brand has 0% visibility for this prompt
+@@option*
+One run isn't enough. Run it several times and report the share of runs that mention the brand.
+@@option
+The API is broken
+@@option
+The brand is blocked by the AI platform
+@@explain
+LLM answers vary from run to run. A single run can't tell 0% from 40%. Several runs give you a mention rate, and the more runs you have, the more reliable the rate is.
+
+@@lesson Detecting brand and competitor mentions
+@@text
+A brand appears in many forms: "Sweat & Co", "Sweat and Co", "SWEAT & CO", "sweatandco.sg". So for each brand, keep a list of **aliases** and check them all, **ignoring capitals**.
+
+@@example Brand aliases
+BRANDS = {
+    "Sweat & Co": ["sweat & co", "sweat and co", "sweatandco"],
+    "FitHub": ["fithub", "fit hub"],
+    "GymPro": ["gympro", "gym pro"],
+}
+
+answer = "Reviewers mention sweatandco.sg for adjustable dumbbells and Fit Hub for cardio machines."
+text = answer.lower()
+
+for brand, aliases in BRANDS.items():
+    found = False
+    for alias in aliases:
+        if alias in text:
+            found = True
+    print(brand, found)
+
+@@exercise mentions(answer, aliases)
+Write `mentions(answer, aliases)`. It returns `True` if **any** alias appears in the answer, **ignoring capitals**, and `False` otherwise. Then add a column `sweat` to `answers` that says whether each answer mentions Sweat & Co.
+
+@@starter
+def mentions(answer, aliases):
+    return False
+
+def mentions_sweat(answer):
+    return mentions(answer, BRANDS["Sweat & Co"])
+
+answers["sweat"] = answers["answer"].apply(mentions_sweat)
+
+print(answers["sweat"].sum(), "of", len(answers), "answers mention Sweat & Co")
+
+@@hint
+Make the answer lowercase once: `text = answer.lower()`. Then loop over `aliases`, and `return True` as soon as `alias in text`. After the loop, `return False`.
+
+@@solution
+def mentions(answer, aliases):
+    text = answer.lower()
+    for alias in aliases:
+        if alias in text:
+            return True
+    return False
+
+def mentions_sweat(answer):
+    return mentions(answer, BRANDS["Sweat & Co"])
+
+answers["sweat"] = answers["answer"].apply(mentions_sweat)
+
+print(answers["sweat"].sum(), "of", len(answers), "answers mention Sweat & Co")
+
+@@check
+assert mentions("I like SWEAT & CO", ["sweat & co"]) is True, "mentions() should ignore capitals."
+assert mentions("Try sweatandco.sg", ["sweat & co", "sweatandco"]) is True, "mentions() should check every alias."
+assert mentions("FitHub is cheap", ["sweat & co"]) is False, "mentions() should return False when no alias appears."
+assert "sweat" in answers.columns, "Keep the line that adds the sweat column."
+assert answers["sweat"].sum() == 9, f"9 answers mention Sweat & Co, but your column counts {answers['sweat'].sum()}."
+
+@@text
+You'll see `lambda` a lot in AI-written pandas code. It's a tiny function without a name. These two lines do the same thing:
+
+```
+answers["sweat"] = answers["answer"].apply(mentions_sweat)
+answers["sweat"] = answers["answer"].apply(lambda a: mentions(a, BRANDS["Sweat & Co"]))
+```
+
+### Watch out: parts of words
+Simple `in` matching has a weakness. Look at what happens with "gym pro":
+
+@@example A false mention, and the whole-word fix
+import re
+
+text = "a walking pad suits a short gym programme at home."
+
+print("gym pro" in text)                          # True! "gym programme" contains "gym pro"
+print(bool(re.search(r"\bgym pro\b", text)))      # False: \b means "word boundary"
+print(bool(re.search(r"\bgym pro\b", "the gym pro walk 5 is slim")))   # True
+
+@@text
+`\b` in a **regular expression** means "the edge of a word". `\bgym pro\b` only matches "gym pro" as whole words. The function `mentioned(answer, brand)` is loaded for the rest of this module, and uses this whole-word method for every alias.
+
+@@bug Mention rate that is far too low
+The AI wrote this to calculate how often Sweat & Co is mentioned. It reports a very low rate. The aliases are right. Find the bug.
+
+@@code
+def mentions(answer, aliases):
+    for alias in aliases:
+        if alias in answer:
+            return True
+    return False
+
+answers["sweat"] = answers["answer"].apply(lambda a: mentions(a, BRANDS["Sweat & Co"]))
+
+rate = answers["sweat"].mean()
+print(f"Sweat & Co mention rate: {rate:.0%}")
+
+@@hint
+The aliases are all lowercase. Are the answers?
+
+@@solution
+def mentions(answer, aliases):
+    text = answer.lower()
+    for alias in aliases:
+        if alias in text:
+            return True
+    return False
+
+answers["sweat"] = answers["answer"].apply(lambda a: mentions(a, BRANDS["Sweat & Co"]))
+
+rate = answers["sweat"].mean()
+print(f"Sweat & Co mention rate: {rate:.0%}")
+
+@@explain
+The aliases are lowercase, but the answers say "Sweat & Co" with capitals, so `"sweat & co" in "Sweat & Co ..."` is False. Only the lowercase "sweatandco.sg" was found. Lowercasing the answer fixes it. This bug makes your brand look invisible in the report, and nothing crashes.
+
+@@check
+assert abs(rate - 0.5) < 1e-9, f"The mention rate should be 50% (9 of 18), but it is {rate:.0%}."
+
+@@tip
+For brand detection, give the AI **your alias list** (brand name spellings, domain, product names) and ask it to show **every match with the text around it** for a sample of answers. Read 20 of them yourself. Look for false matches ("gym programme" counted as GymPro) and misses (a typo of your brand name, or a product name used without the brand).
+
+@@quiz
+Why is `"gym pro" in "a short gym programme"` a problem for mention tracking?
+@@option
+It gives an error
+@@option*
+It returns True, so a competitor gets a mention it never had
+@@option
+It returns False, so a real mention is missed
+@@option
+It's slower than regex
+@@explain
+`in` matches letters anywhere, including inside other words. "gym programme" contains "gym pro", so GymPro would get a false mention. A whole-word regex with `\b` avoids this.
+
+@@lesson Which domains do AI answers cite?
+@@text
+Each answer in the sample lists the URLs it cited, joined with `" | "`. To count **domains**, split the text into URLs, then take the domain from each URL with `urllib.parse.urlparse`.
+
+`urlparse()` splits a URL into parts. `.netloc` is the domain part (with `www.` if the URL has it).
+
+@@example Parts of a URL
+from urllib.parse import urlparse
+
+url = "https://www.sweatandco.sg/collections/dumbbells?utm_source=chatgpt.com"
+parts = urlparse(url)
+
+print(parts.scheme)   # https
+print(parts.netloc)   # www.sweatandco.sg
+print(parts.path)     # /collections/dumbbells
+print(parts.query)    # utm_source=chatgpt.com  (ChatGPT adds this to links it cites)
+
+@@text
+`collections.Counter` counts things for you, and `.most_common(n)` gives the top n.
+
+@@example Counting with Counter
+from collections import Counter
+
+domains = ["fithub.sg", "sweatandco.sg", "fithub.sg", "reddit.com", "fithub.sg"]
+counts = Counter(domains)
+print(counts)
+print(counts.most_common(2))
+
+@@exercise Top cited domains
+1. Write `get_domain(url)`: it returns the domain in lowercase, **without** `www.` at the start.
+2. Loop through every answer's `cited_urls`, split on `" | "`, and collect every domain in the list `all_domains`.
+3. Store the 3 most common as `top_domains`, using `Counter(...).most_common(3)`.
+
+@@starter
+from urllib.parse import urlparse
+from collections import Counter
+
+def get_domain(url):
+    return url
+
+all_domains = []
+for cited in answers["cited_urls"]:
+    pass   # split cited on " | ", then add get_domain(url) for each url
+
+top_domains = None
+
+print(len(all_domains), "citations")
+print(top_domains)
+
+@@hint
+In `get_domain`: `domain = urlparse(url).netloc.lower()`, then `domain.removeprefix("www.")`. In the loop: `for url in cited.split(" | "):` then `all_domains.append(get_domain(url))`.
+
+@@solution
+from urllib.parse import urlparse
+from collections import Counter
+
+def get_domain(url):
+    domain = urlparse(url).netloc.lower()
+    return domain.removeprefix("www.")
+
+all_domains = []
+for cited in answers["cited_urls"]:
+    for url in cited.split(" | "):
+        all_domains.append(get_domain(url))
+
+top_domains = Counter(all_domains).most_common(3)
+
+print(len(all_domains), "citations")
+print(top_domains)
+
+@@check
+assert get_domain("https://www.Example.com/page?x=1") == "example.com", "get_domain should return the lowercase domain without www."
+assert get_domain("https://fithub.sg/") == "fithub.sg", "get_domain should work when there is no www."
+assert len(all_domains) == 34, f"There are 34 cited URLs in total, but all_domains has {len(all_domains)}."
+assert top_domains is not None and len(top_domains) == 3, "top_domains should be Counter(all_domains).most_common(3)."
+assert top_domains[0] == ("sweatandco.sg", 9), f"The most cited domain should be ('sweatandco.sg', 9). You have {top_domains[0]}"
+assert sorted(top_domains) == sorted([("sweatandco.sg", 9), ("fithub.sg", 8), ("gympro.com.sg", 8)]), f"top_domains should be sweatandco.sg 9, fithub.sg 8 and gympro.com.sg 8. You have {top_domains}"
+
+@@exercise Citation rate per platform
+Being **mentioned** and being **cited** (linked as a source) are different things. Add a column `cites_us` that is `True` when an answer's `cited_urls` contains `sweatandco.sg`. Then store the share of answers that cite Sweat & Co, **per platform**, in `citation_rate`.
+
+@@starter
+answers["cites_us"] = False   # change this
+
+citation_rate = None
+
+citation_rate
+
+@@hint
+`answers["cited_urls"].str.contains("sweatandco.sg")` gives True/False per row. The mean of a True/False column is the share of True, so `answers.groupby("platform")["cites_us"].mean()`.
+
+@@solution
+answers["cites_us"] = answers["cited_urls"].str.contains("sweatandco.sg")
+
+citation_rate = answers.groupby("platform")["cites_us"].mean()
+
+citation_rate
+
+@@check
+assert citation_rate is not None, "Set citation_rate."
+got = citation_rate.round(4).to_dict()
+assert got == {"ChatGPT": 0.8333, "Gemini": 0.1667, "Perplexity": 0.5}, f"citation_rate should be ChatGPT 0.83, Gemini 0.17, Perplexity 0.5. You have {got}"
+
+@@tip
+When AI extracts domains, check how it handles `www.`, subdomains (`blog.sweatandco.sg`), capital letters and tracking parameters like `?utm_source=chatgpt.com`. Ask it to print the **10 most common raw URLs next to their cleaned domain**. If `www.fithub.sg` and `fithub.sg` show up as two rows in your report, the cleaning step is missing.
+
+@@quiz
+`urlparse("https://www.gympro.com.sg/walk-5?ref=ai").netloc` gives:
+@@option
+`gympro`
+@@option*
+`www.gympro.com.sg`
+@@option
+`/walk-5`
+@@option
+`https://www.gympro.com.sg/walk-5`
+@@explain
+`netloc` is the domain part, including `www.` when the URL has it. `.path` would be `/walk-5`, and `.query` would be `ref=ai`.
+
+@@lesson Mention rate, share of voice and a chart
+@@text
+Two numbers you will report again and again:
+
+- **Mention rate**: the share of answers (runs) that mention a brand. "Sweat & Co was mentioned in 9 of 18 answers: 50%."
+- **Share of voice (SOV)**: the brand's mentions divided by the mentions of **all** tracked brands. It shows how much of the conversation you own compared with competitors.
+
+Tools define SOV in different ways (by mentions, by position, by weighted visibility). Always say which definition you used.
+
+The mean of a True/False column is the share of `True` values, so `groupby(...).mean()` gives a mention rate directly.
+
+@@example Mention rate per platform, for every brand
+for brand in BRANDS:
+    answers[brand] = answers["answer"].apply(lambda a: mentioned(a, brand))
+
+rates = answers.groupby("platform")[list(BRANDS)].mean().round(2)
+rates
+
+@@example Share of voice per platform
+for brand in BRANDS:
+    answers[brand] = answers["answer"].apply(lambda a: mentioned(a, brand))
+
+counts = answers.groupby("platform")[list(BRANDS)].sum()        # mentions per brand
+sov = counts.div(counts.sum(axis=1), axis=0).round(2)           # each row adds up to 1
+print(counts)
+print()
+sov
+
+@@text
+### A chart for the report
+**matplotlib** draws charts, and pandas can call it for you with `.plot()`. Give each brand **one fixed colour** and use it in every chart, so readers learn it. Label the bars with their values, so the chart doesn't rely on colour alone.
+
+@@example Mention rate by platform, as a bar chart
+import matplotlib.pyplot as plt
+
+for brand in BRANDS:
+    answers[brand] = answers["answer"].apply(lambda a: mentioned(a, brand))
+rates = answers.groupby("platform")[list(BRANDS)].mean() * 100
+
+colors = ["#2a78d6", "#eb6834", "#1baf7a"]     # Sweat & Co, FitHub, GymPro: always the same order
+ax = rates.plot(kind="bar", color=colors, width=0.75, figsize=(7, 4), edgecolor="white", linewidth=2)
+
+ax.set_title("Mention rate by platform (% of runs, 6 runs each)", loc="left")
+ax.set_ylabel("% of answers")
+ax.set_xlabel("")
+ax.set_ylim(0, 100)
+ax.tick_params(axis="x", rotation=0)
+ax.spines[["top", "right"]].set_visible(False)
+ax.grid(axis="y", alpha=0.3)
+ax.set_axisbelow(True)
+for bars in ax.containers:
+    ax.bar_label(bars, fmt="%.0f", fontsize=8, padding=2)
+ax.legend(frameon=False, ncols=3, loc="upper left")
+plt.tight_layout()
+
+@@exercise Mention rate per prompt
+Using the `mentioned()` function, add a column `sweat` (does the answer mention Sweat & Co?). Then store the mention rate **per prompt** in `prompt_rate`.
+
+@@starter
+answers["sweat"] = False   # change this: use mentioned(a, "Sweat & Co")
+
+prompt_rate = None
+
+prompt_rate
+
+@@hint
+`answers["sweat"] = answers["answer"].apply(lambda a: mentioned(a, "Sweat & Co"))`, then `answers.groupby("prompt")["sweat"].mean()`.
+
+@@solution
+answers["sweat"] = answers["answer"].apply(lambda a: mentioned(a, "Sweat & Co"))
+
+prompt_rate = answers.groupby("prompt")["sweat"].mean()
+
+prompt_rate
+
+@@check
+assert prompt_rate is not None, "Set prompt_rate."
+got = prompt_rate.round(4).to_dict()
+assert got == {"best foldable treadmill for a small hdb flat": 0.4444, "best place to buy home gym equipment in singapore": 0.5556}, f"prompt_rate should be about 0.44 for the treadmill prompt and 0.56 for the home gym prompt. You have {got}"
+
+@@exercise Chart Sweat & Co's mention rate
+Make a **bar chart** with one bar per platform, showing Sweat & Co's mention rate. Give it a title. Use the blue `#2a78d6`. The rates are calculated for you.
+
+@@starter
+import matplotlib.pyplot as plt
+
+answers["sweat"] = answers["answer"].apply(lambda a: mentioned(a, "Sweat & Co"))
+rate = answers.groupby("platform")["sweat"].mean() * 100
+print(rate)
+
+# draw the chart here
+
+@@hint
+`ax = rate.plot(kind="bar", color="#2a78d6")`, then `ax.set_title("Sweat & Co mention rate by platform (%)")`. You can also use `plt.bar(rate.index, rate.values)`.
+
+@@solution
+import matplotlib.pyplot as plt
+
+answers["sweat"] = answers["answer"].apply(lambda a: mentioned(a, "Sweat & Co"))
+rate = answers.groupby("platform")["sweat"].mean() * 100
+print(rate)
+
+ax = rate.plot(kind="bar", color="#2a78d6", figsize=(6, 3.5))
+ax.set_title("Sweat & Co mention rate by platform (%)", loc="left")
+ax.set_ylabel("% of answers")
+ax.set_xlabel("")
+ax.set_ylim(0, 100)
+ax.tick_params(axis="x", rotation=0)
+ax.spines[["top", "right"]].set_visible(False)
+ax.bar_label(ax.containers[0], fmt="%.0f", padding=2)
+plt.tight_layout()
+
+@@check
+import matplotlib.pyplot as plt
+assert plt.get_fignums(), "No chart found. Draw a bar chart, for example with rate.plot(kind='bar')."
+ax = plt.gcf().axes[0]
+heights = sorted(round(p.get_height(), 1) for p in ax.patches)
+assert len(heights) == 3, f"The chart should have 3 bars, one per platform. It has {len(heights)}."
+assert heights in ([16.7, 50.0, 83.3], [0.2, 0.5, 0.8]), f"The bar heights don't match the mention rates (17%, 50%, 83%). You have {[float(h) for h in heights]}"
+assert ax.get_title(loc="left") or ax.get_title(), "Give the chart a title with ax.set_title(...)."
+
+@@text
+### How sure can you be?
+With only 6 runs per platform, one extra mention moves the rate by about 17 points. Small samples jump around. Before you tell a client "ChatGPT visibility dropped from 67% to 50%", check how many runs sit behind each number. Use more runs for important prompts, and look at trends over several weeks.
+
+@@tip
+When AI builds a GEO report, ask it to show the **count behind every percentage** ("4 of 6 runs") and to say how SOV is defined. Check that a filter didn't silently drop platforms or prompts (compare row counts), and that each brand keeps the **same colour** in every chart. Ask for value labels on bars. A chart with no numbers is hard to check.
+
+@@quiz
+In the sample, Sweat & Co, FitHub and GymPro are each mentioned in 9 answers. What is Sweat & Co's share of voice (by mentions)?
+@@option
+9%
+@@option
+50%
+@@option*
+About 33%
+@@option
+100%
+@@explain
+Share of voice = 9 ÷ (9 + 9 + 9) = 9 ÷ 27 ≈ 33%. Each brand has a third of the conversation. The 50% figure is the **mention rate** (9 of 18 answers), which is a different measure.

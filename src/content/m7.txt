@@ -1,0 +1,540 @@
+@id module-7
+@num 7
+@title Module 7: APIs and automation
+@short APIs and automation
+@path module-7 › apis
+@time Week 8
+@desc What an API is in plain words, how to find your way around JSON, how to turn an API response into a DataFrame, date ranges like "last 28 days", keeping API keys safe, and real Search Console API code for Colab.
+@goal Understand API responses well enough to pull Search Console data with code, and check that the dates and numbers are right.
+
+@@setup
+import json
+import pandas as pd
+from datetime import date, timedelta
+
+pd.set_option("display.max_columns", 20)
+pd.set_option("display.width", 120)
+
+GSC_RESPONSE = """{
+  "rows": [
+    {"keys": ["yoga mat singapore", "https://www.sweatandco.sg/collections/yoga-mats"], "clicks": 310, "impressions": 12600, "ctr": 0.0246, "position": 3.9},
+    {"keys": ["adjustable dumbbells singapore", "https://www.sweatandco.sg/products/adjustable-dumbbells-24kg"], "clicks": 260, "impressions": 9800, "ctr": 0.0265, "position": 4.3},
+    {"keys": ["dumbbells singapore", "https://www.sweatandco.sg/collections/dumbbells"], "clicks": 190, "impressions": 14200, "ctr": 0.0134, "position": 6.8},
+    {"keys": ["hdb home gym ideas", "https://www.sweatandco.sg/blog/hdb-home-gym-ideas"], "clicks": 156, "impressions": 3400, "ctr": 0.0459, "position": 2.8},
+    {"keys": ["foldable treadmill singapore", "https://www.sweatandco.sg/products/foldable-treadmill-t200"], "clicks": 145, "impressions": 8900, "ctr": 0.0163, "position": 5.6},
+    {"keys": ["resistance bands singapore", "https://www.sweatandco.sg/collections/resistance-bands"], "clicks": 133, "impressions": 5200, "ctr": 0.0256, "position": 4.0},
+    {"keys": ["treadmill singapore", "https://www.sweatandco.sg/collections/treadmills"], "clicks": 98, "impressions": 18400, "ctr": 0.0053, "position": 9.2},
+    {"keys": ["how to use resistance bands", "https://www.sweatandco.sg/blog/how-to-use-resistance-bands"], "clicks": 88, "impressions": 7600, "ctr": 0.0116, "position": 7.3}
+  ],
+  "responseAggregationType": "byPage"
+}"""
+
+GSC_DATES_RESPONSE = """{
+  "rows": [
+    {"keys": ["2026-11-04"], "clicks": 96, "impressions": 3410, "ctr": 0.0282, "position": 8.4},
+    {"keys": ["2026-11-05"], "clicks": 102, "impressions": 3522, "ctr": 0.029, "position": 8.2},
+    {"keys": ["2026-11-06"], "clicks": 88, "impressions": 3305, "ctr": 0.0266, "position": 8.5},
+    {"keys": ["2026-11-07"], "clicks": 71, "impressions": 2870, "ctr": 0.0247, "position": 8.9},
+    {"keys": ["2026-11-08"], "clicks": 64, "impressions": 2690, "ctr": 0.0238, "position": 9.1},
+    {"keys": ["2026-11-09"], "clicks": 99, "impressions": 3480, "ctr": 0.0284, "position": 8.3},
+    {"keys": ["2026-11-10"], "clicks": 105, "impressions": 3601, "ctr": 0.0292, "position": 8.1}
+  ],
+  "responseAggregationType": "byProperty"
+}"""
+
+INSPECTION_RESPONSE = """{
+  "inspectionResult": {
+    "inspectionResultLink": "https://search.google.com/search-console/inspect?resource_id=sc-domain:sweatandco.sg",
+    "indexStatusResult": {
+      "verdict": "PASS",
+      "coverageState": "Submitted and indexed",
+      "robotsTxtState": "ALLOWED",
+      "indexingState": "INDEXING_ALLOWED",
+      "lastCrawlTime": "2026-11-02T08:14:55Z",
+      "pageFetchState": "SUCCESSFUL",
+      "googleCanonical": "https://www.sweatandco.sg/products/foldable-treadmill-t200",
+      "userCanonical": "https://www.sweatandco.sg/products/foldable-treadmill-t200",
+      "sitemap": ["https://www.sweatandco.sg/sitemap_products_1.xml"],
+      "crawledAs": "MOBILE"
+    }
+  }
+}"""
+
+@@lesson What an API is, and how to read JSON
+@@text
+An **API** is a way for one program to ask another service for data. Think of a restaurant: you don't walk into the kitchen. You order from a menu, and the waiter brings back your food. With an API:
+
+1. **You send a request**: what you want (for example "clicks by query for October") plus a key or login that proves you are allowed.
+2. **The service sends back a response**, usually in a text format called **JSON**.
+
+JSON looks almost exactly like Python **dictionaries** (`{ }`) and **lists** (`[ ]`), nested inside each other. A Search Console API response looks like this:
+
+```
+{
+  "rows": [
+    {"keys": ["yoga mat singapore", "https://www.sweatandco.sg/collections/yoga-mats"],
+     "clicks": 310, "impressions": 12600, "ctr": 0.0246, "position": 3.9},
+    ...
+  ]
+}
+```
+
+To read it: `data["rows"]` is a **list** of rows. Each row is a **dict**. `row["keys"]` is a **list** whose order matches the dimensions you asked for (here: query, then page).
+
+`json.loads()` turns JSON text into Python. A sample response is loaded as the text `GSC_RESPONSE`.
+
+@@example Walking through a response
+import json
+
+data = json.loads(GSC_RESPONSE)
+print(type(data))
+print(data.keys())
+print(len(data["rows"]), "rows")
+
+first = data["rows"][0]
+print(first)
+print("Query:", first["keys"][0])
+print("Page: ", first["keys"][1])
+print("Clicks:", first["clicks"])
+
+@@exercise Total clicks and the top query
+Loop through `data["rows"]` to store `total_clicks` (the sum of all clicks) and `top_query` (the query of the row with the most clicks).
+
+@@starter
+import json
+
+data = json.loads(GSC_RESPONSE)
+
+total_clicks = 0
+top_query = None
+top_clicks = 0
+
+for row in data["rows"]:
+    pass   # replace this line
+
+print(total_clicks, top_query)
+
+@@hint
+Inside the loop: `total_clicks = total_clicks + row["clicks"]`. Then `if row["clicks"] > top_clicks:` save both `top_clicks = row["clicks"]` and `top_query = row["keys"][0]`.
+
+@@solution
+import json
+
+data = json.loads(GSC_RESPONSE)
+
+total_clicks = 0
+top_query = None
+top_clicks = 0
+
+for row in data["rows"]:
+    total_clicks = total_clicks + row["clicks"]
+    if row["clicks"] > top_clicks:
+        top_clicks = row["clicks"]
+        top_query = row["keys"][0]
+
+print(total_clicks, top_query)
+
+@@check
+assert total_clicks == 1380, f"total_clicks should be 1380, but it is {total_clicks!r}."
+assert top_query == "yoga mat singapore", f"top_query should be 'yoga mat singapore'. You have {top_query!r}. Remember that the query is row['keys'][0]."
+
+@@exercise Read a URL Inspection result
+`INSPECTION_RESPONSE` is a sample response from the Search Console **URL Inspection API**. It's nested several levels deep. Store:
+
+- `coverage_state`: the `coverageState` text
+- `last_crawl`: the `lastCrawlTime` text
+- `canonicals_match`: `True` if `googleCanonical` equals `userCanonical`
+
+@@starter
+import json
+
+result = json.loads(INSPECTION_RESPONSE)
+print(result.keys())
+
+coverage_state = None
+last_crawl = None
+canonicals_match = None
+
+print(coverage_state, last_crawl, canonicals_match)
+
+@@hint
+Go one level at a time: `status = result["inspectionResult"]["indexStatusResult"]`. Then `status["coverageState"]`, and so on. For the match, compare with `==`.
+
+@@solution
+import json
+
+result = json.loads(INSPECTION_RESPONSE)
+print(result.keys())
+
+status = result["inspectionResult"]["indexStatusResult"]
+coverage_state = status["coverageState"]
+last_crawl = status["lastCrawlTime"]
+canonicals_match = status["googleCanonical"] == status["userCanonical"]
+
+print(coverage_state, last_crawl, canonicals_match)
+
+@@check
+assert coverage_state == "Submitted and indexed", f"coverage_state should be 'Submitted and indexed', but it is {coverage_state!r}."
+assert last_crawl == "2026-11-02T08:14:55Z", f"last_crawl should be '2026-11-02T08:14:55Z', but it is {last_crawl!r}."
+assert canonicals_match is True, "canonicals_match should be True: Google picked the same canonical as the page declares."
+
+@@tip
+When AI writes API code, ask it to **print one raw item of the response first**, like `print(json.dumps(data["rows"][0], indent=2))`, before turning it into a table. Then check the key names against the real response. A very common silent bug is `row.get("click", 0)` (a typo) that quietly gives 0 for every row.
+
+@@quiz
+In a Search Console response requested with dimensions `["query", "page"]`, where is the page URL for a row?
+@@option
+`row["page"]`
+@@option
+`row["keys"][0]`
+@@option*
+`row["keys"][1]`
+@@option
+`row["url"]`
+@@explain
+`keys` is a list in the same order as the dimensions you asked for. Query is first (position 0), page is second (position 1).
+
+@@lesson From JSON to a DataFrame
+@@text
+To analyse API data, turn it into a pandas DataFrame. The clearest way: loop through the rows, build one dictionary per row with **named** columns, then call `pd.DataFrame()` on the list.
+
+@@example Rows to a DataFrame
+import json
+import pandas as pd
+
+data = json.loads(GSC_RESPONSE)
+
+rows = []
+for r in data["rows"]:
+    rows.append({
+        "query": r["keys"][0],
+        "page": r["keys"][1],
+        "clicks": r["clicks"],
+        "impressions": r["impressions"],
+        "ctr": r["ctr"],
+        "position": r["position"],
+    })
+
+api_df = pd.DataFrame(rows)
+print(api_df.shape)
+api_df.head()
+
+@@text
+pandas also has `pd.json_normalize()`, which flattens JSON automatically. It's quick for exploring, but here the `keys` column stays as a list, so you still need to split it:
+
+@@example json_normalize
+data = json.loads(GSC_RESPONSE)
+quick = pd.json_normalize(data["rows"])
+quick.head(3)
+
+@@exercise Daily clicks
+`GSC_DATES_RESPONSE` was requested with the dimension `["date"]`. Build a DataFrame `daily` with the columns `date`, `clicks` and `impressions`. Convert `date` to real dates with `pd.to_datetime()`.
+
+@@starter
+import json
+import pandas as pd
+
+data = json.loads(GSC_DATES_RESPONSE)
+
+rows = []
+# build one dict per row here
+
+daily = pd.DataFrame(rows)
+# convert the date column here
+
+print(daily.dtypes)
+daily
+
+@@hint
+`rows.append({"date": r["keys"][0], "clicks": r["clicks"], "impressions": r["impressions"]})` inside a loop. Then `daily["date"] = pd.to_datetime(daily["date"])`.
+
+@@solution
+import json
+import pandas as pd
+
+data = json.loads(GSC_DATES_RESPONSE)
+
+rows = []
+for r in data["rows"]:
+    rows.append({"date": r["keys"][0], "clicks": r["clicks"], "impressions": r["impressions"]})
+
+daily = pd.DataFrame(rows)
+daily["date"] = pd.to_datetime(daily["date"])
+
+print(daily.dtypes)
+daily
+
+@@check
+assert isinstance(daily, pd.DataFrame) and len(daily) == 7, f"daily should be a DataFrame with 7 rows. It has {len(daily)}."
+for col in ["date", "clicks", "impressions"]:
+    assert col in daily.columns, f"daily needs a {col!r} column."
+assert pd.api.types.is_datetime64_any_dtype(daily["date"]), "Convert the date column with pd.to_datetime()."
+assert daily["clicks"].sum() == 625, "The clicks don't add up to 625. Did you use r['clicks']?"
+
+@@tip
+Ask AI to **name every column by hand** when it converts API data, as in the example, instead of relying on the position of things. And ask it to check the row count: the Search Console API returns at most 25,000 rows per request. If a script gets exactly 25,000 rows, it probably needs **pagination** (more requests with `startRow`). The Colab code in lesson 7.4 does this.
+
+@@quiz
+Why convert the `date` column with `pd.to_datetime()`?
+@@option
+It makes the table smaller
+@@option*
+So pandas treats the values as dates, which makes sorting, filtering by date and weekly sums reliable
+@@option
+The API needs it
+@@option
+Because text can't be printed
+@@explain
+As text, "2026-11-10" is just characters. As a real date, pandas can sort it correctly, compare it, and group it by week or month.
+
+@@lesson Dates: "last 28 days" done right
+@@text
+Python's `datetime` module handles dates. `date(2026, 11, 13)` makes a date, and `timedelta(days=3)` is a length of time you can add or subtract.
+
+Two Search Console facts matter here:
+
+1. Data is **delayed**. The most recent 2–3 days are usually missing or incomplete, so reports often end a few days before today.
+2. "Last 28 days" means **28 days including both the start day and the end day**. So `start = end - 27 days`, not 28.
+
+To keep results the same every day, this course uses a fixed "today". In a real script, use `date.today()`.
+
+@@example The last 28 days
+from datetime import date, timedelta
+
+today = date(2026, 11, 13)          # in a real script: date.today()
+end = today - timedelta(days=3)     # Search Console data lags a few days
+start = end - timedelta(days=27)    # 28 days, counting both start and end
+
+print(start, "to", end)
+print((end - start).days + 1, "days")
+print(start.isoformat())            # "YYYY-MM-DD", the format the API wants
+print(start.strftime("%d %b %Y"))   # a friendlier format for reports
+
+@@exercise The previous 28 days
+To compare periods, you need the 28 days **just before** the current period. Store `prev_end` (the day before `start`) and `prev_start`, then make sure both periods have exactly 28 days.
+
+@@starter
+from datetime import date, timedelta
+
+today = date(2026, 11, 13)
+end = today - timedelta(days=3)
+start = end - timedelta(days=27)
+
+prev_end = None
+prev_start = None
+
+print("Current: ", start, "to", end)
+print("Previous:", prev_start, "to", prev_end)
+
+@@hint
+`prev_end = start - timedelta(days=1)`. Then `prev_start` is 27 days before `prev_end`, just like `start` was 27 days before `end`.
+
+@@solution
+from datetime import date, timedelta
+
+today = date(2026, 11, 13)
+end = today - timedelta(days=3)
+start = end - timedelta(days=27)
+
+prev_end = start - timedelta(days=1)
+prev_start = prev_end - timedelta(days=27)
+
+print("Current: ", start, "to", end)
+print("Previous:", prev_start, "to", prev_end)
+
+@@check
+assert prev_end == date(2026, 10, 13), f"prev_end should be the day before start (2026-10-13), but it is {prev_end}."
+assert prev_start == date(2026, 9, 16), f"prev_start should be 2026-09-16 (28 days including both ends), but it is {prev_start}."
+assert (prev_end - prev_start).days + 1 == 28, "The previous period should have exactly 28 days."
+
+@@bug A 28-day report that isn't 28 days
+The AI built this date range for a "last 28 days" report. There's no error, but the comparison with the Search Console UI is always a little off. Fix it.
+
+@@code
+from datetime import date, timedelta
+
+today = date(2026, 11, 13)
+end = today - timedelta(days=3)
+start = end - timedelta(days=28)
+
+days = (end - start).days + 1
+print(start, "to", end, f"({days} days)")
+
+@@hint
+Count the days in the printed range. Both the start day and the end day are included.
+
+@@solution
+from datetime import date, timedelta
+
+today = date(2026, 11, 13)
+end = today - timedelta(days=3)
+start = end - timedelta(days=27)
+
+days = (end - start).days + 1
+print(start, "to", end, f"({days} days)")
+
+@@explain
+`end - 28 days` gives a range of **29** days, because Search Console counts both the start and end day. This "off-by-one" bug is very common in AI code. It makes every number a few percent higher than the Search Console UI, with no error. Use `end - timedelta(days=27)`.
+
+@@check
+assert days == 28, f"The range should be exactly 28 days, but it is {days}."
+assert end == date(2026, 11, 10), "Keep the end date at today minus 3 days."
+
+@@tip
+For any AI script that pulls Search Console data, ask it to **print the exact start and end dates** it used, and the number of days. Then compare one total with the Search Console UI for the same dates. If the numbers are a bit off, check the date range first, then the time zone (Search Console uses Pacific Time).
+
+@@quiz
+`end` is 10 November. Which `start` gives a 7-day range that includes both days?
+@@option
+`end - timedelta(days=7)` (3 November)
+@@option*
+`end - timedelta(days=6)` (4 November)
+@@option
+`end - timedelta(days=8)` (2 November)
+@@option
+`end + timedelta(days=7)`
+@@explain
+4, 5, 6, 7, 8, 9 and 10 November are 7 days. Subtracting 7 would give 8 days (3 to 10 November).
+
+@@lesson API keys, and the real Search Console API
+@@text
+An **API key** (or a service account file) works like a password. Anyone who has it can use your account, and you may pay for what they use.
+
+- **Never** put a key straight into your code, a Google Sheet, a Slack message or a GitHub repository.
+- In Colab, use **Secrets**: click the key icon in the left sidebar, add a name (for example `ANTHROPIC_API_KEY`) and the value, and switch on "Notebook access". Your code reads it with `userdata.get("NAME")`.
+- If a key ever leaks, **revoke it and create a new one immediately**. Deleting the message or the commit is not enough.
+
+@@colab Reading a key from Colab Secrets
+@@code
+from google.colab import userdata
+
+api_key = userdata.get("ANTHROPIC_API_KEY")     # the name you gave the secret
+print("Key loaded:", api_key is not None)
+print("Ends with:", api_key[-4:])                # never print the whole key
+
+@@text
+### Setting up the Search Console API (one time)
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project and enable the **Google Search Console API**.
+2. Create a **service account**, then create a **JSON key** for it and download the file.
+3. In Search Console, open your property → **Settings → Users and permissions** → add the service account's email address. "Restricted" permission is enough for reading data.
+4. In Colab, add a secret called `GSC_SERVICE_ACCOUNT` and paste the **whole contents** of the JSON file as its value.
+
+The API wants a request **body**: a dictionary with the dates, dimensions and row limit. Building it with a function makes it easy to reuse.
+
+@@exercise Build the request body
+Write `make_request_body(start, end, dimensions, row_limit=25000)` that returns a dictionary with these keys:
+
+- `"startDate"` and `"endDate"`: the dates as `"YYYY-MM-DD"` text (use `.isoformat()`)
+- `"dimensions"`: the list you were given
+- `"rowLimit"`: `row_limit`
+- `"startRow"`: `0`
+
+@@starter
+from datetime import date
+
+def make_request_body(start, end, dimensions, row_limit=25000):
+    return {}
+
+body = make_request_body(date(2026, 10, 14), date(2026, 11, 10), ["query", "page"])
+print(body)
+
+@@hint
+```
+    return {
+        "startDate": start.isoformat(),
+        "endDate": end.isoformat(),
+        ...
+    }
+```
+
+@@solution
+from datetime import date
+
+def make_request_body(start, end, dimensions, row_limit=25000):
+    return {
+        "startDate": start.isoformat(),
+        "endDate": end.isoformat(),
+        "dimensions": dimensions,
+        "rowLimit": row_limit,
+        "startRow": 0,
+    }
+
+body = make_request_body(date(2026, 10, 14), date(2026, 11, 10), ["query", "page"])
+print(body)
+
+@@check
+b = make_request_body(date(2026, 10, 14), date(2026, 11, 10), ["query", "page"])
+assert isinstance(b, dict), "make_request_body should return a dictionary."
+assert b.get("startDate") == "2026-10-14", f"startDate should be the text '2026-10-14'. You have {b.get('startDate')!r}."
+assert b.get("endDate") == "2026-11-10", f"endDate should be '2026-11-10'. You have {b.get('endDate')!r}."
+assert b.get("dimensions") == ["query", "page"], "dimensions should be the list you were given."
+assert b.get("rowLimit") == 25000, "rowLimit should default to 25000."
+assert b.get("startRow") == 0, "startRow should be 0."
+assert make_request_body(date(2026, 1, 1), date(2026, 1, 28), ["date"], row_limit=100)["rowLimit"] == 100, "row_limit=100 should give rowLimit 100."
+
+@@colab Pull 28 days of query + page data from Search Console
+This is real code for Colab. Change `SITE_URL` to your property: `sc-domain:yourdomain.com` for a Domain property, or the full URL with a trailing slash (`https://www.yourdomain.com/`) for a URL-prefix property.
+
+@@code
+!pip install --quiet google-api-python-client google-auth
+
+import json
+from datetime import date, timedelta
+import pandas as pd
+from google.colab import userdata
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+SITE_URL = "sc-domain:example.com"      # change this to your property
+
+info = json.loads(userdata.get("GSC_SERVICE_ACCOUNT"))
+creds = service_account.Credentials.from_service_account_info(
+    info, scopes=["https://www.googleapis.com/auth/webmasters.readonly"]
+)
+service = build("searchconsole", "v1", credentials=creds)
+
+end = date.today() - timedelta(days=3)
+start = end - timedelta(days=27)
+
+rows, start_row = [], 0
+while True:                              # pagination: keep asking until a page comes back short
+    body = {
+        "startDate": start.isoformat(),
+        "endDate": end.isoformat(),
+        "dimensions": ["query", "page"],
+        "rowLimit": 25000,
+        "startRow": start_row,
+    }
+    response = service.searchanalytics().query(siteUrl=SITE_URL, body=body).execute()
+    batch = response.get("rows", [])
+    rows.extend(batch)
+    if len(batch) < 25000:
+        break
+    start_row += 25000
+
+df = pd.DataFrame([{
+    "query": r["keys"][0], "page": r["keys"][1], "clicks": r["clicks"],
+    "impressions": r["impressions"], "ctr": r["ctr"], "position": r["position"],
+} for r in rows])
+
+print(f"{start} to {end}: {len(df)} rows")
+df.sort_values("clicks", ascending=False).head(10)
+
+@@text
+**Important when you report on this data:** Search Console hides some queries for privacy (anonymised queries). So the query rows **don't add up** to the site's total clicks. To see how much the query rows cover, run a second request with no dimensions (or with only `["date"]`) for the same dates, and compare: query-level clicks ÷ total clicks. Always state that share and the date range in your reports.
+
+@@tip
+Before you run AI-written API code, check: **(1)** no key or JSON file is pasted into the code, **(2)** the scope is read-only (`webmasters.readonly`) when you only need to read, **(3)** it paginates, so it doesn't stop at 25,000 rows, **(4)** it prints the date range and row count. If the AI suggests putting the key in the code "just for testing", say no. Test keys leak too.
+
+@@quiz
+You accidentally pushed a notebook with your API key to a public GitHub repo. What should you do first?
+@@option
+Delete the notebook from GitHub
+@@option
+Make the repository private
+@@option*
+Revoke the key and create a new one
+@@option
+Nothing, because nobody will notice
+@@explain
+Bots scan public repositories for keys within minutes, and Git keeps old versions anyway. Revoking the key makes the leaked copy useless. Then clean up the repository.

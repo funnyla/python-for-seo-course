@@ -1,0 +1,368 @@
+@id module-2
+@num 2
+@title Module 2: Working with text (strings)
+@short Working with text
+@path module-2 › strings
+@time Week 2
+@desc Clean messy keywords, build title tags with f-strings, check title length, search inside text and turn page titles into clean URL slugs.
+@goal Clean and reshape text the way SEO work needs: keywords, title tags, meta descriptions and URLs.
+
+@@lesson Cleaning keywords with string methods
+@@text
+Most SEO data is text: keywords, URLs, titles, anchor text. Python's text type is the **string** (`str`).
+
+A **method** is an action that belongs to a value. You write a dot and then the method name: `keyword.lower()`.
+
+| Method | What it does | `"  Yoga MAT  "` becomes |
+|---|---|---|
+| `.lower()` | all lowercase | `"  yoga mat  "` |
+| `.upper()` | all capitals | `"  YOGA MAT  "` |
+| `.strip()` | removes spaces at the start and end | `"Yoga MAT"` |
+| `.replace(a, b)` | swaps `a` for `b` everywhere | |
+| `.split()` | cuts the text into a list of words | `["Yoga", "MAT"]` |
+
+**Important:** string methods never change the original. They give you a **new** string, so save it in a variable if you want to keep it.
+
+@@example lower and strip
+raw = "   Yoga Mat SINGAPORE  "
+
+print(raw.lower())          # all lowercase
+print(raw.strip())          # spaces removed at both ends
+print(raw.strip().lower())  # both, one after the other
+print(repr(raw))            # the original did not change! repr() shows the spaces
+
+@@example replace and split
+keyword = "best yoga mat singapore"
+
+print(keyword.replace("singapore", "sg"))
+words = keyword.split()     # split on spaces into a list of words
+print(words)
+print(len(words), "words")
+
+@@text
+`split()` gives you a **list** (you will learn lists in Module 3). `split(",")` cuts on commas instead, which is handy when a client sends keywords as one comma-separated cell.
+
+@@exercise Clean a messy keyword
+A keyword came from a client spreadsheet with extra spaces and random capitals. Make `clean` the tidy version, `"adjustable dumbbells singapore"`, and store its number of words in `word_count`.
+
+@@starter
+raw = "  Adjustable Dumbbells SINGAPORE  "
+
+clean = raw          # change this line
+word_count = None
+
+print(repr(clean))   # repr() shows the quotes, so you can see extra spaces
+print(word_count)
+
+@@hint
+Chain two methods: `raw.strip().lower()`. For the count, split `clean` into words and use `len()` on the result.
+
+@@solution
+raw = "  Adjustable Dumbbells SINGAPORE  "
+
+clean = raw.strip().lower()
+word_count = len(clean.split())
+
+print(repr(clean))
+print(word_count)
+
+@@check
+assert clean == "adjustable dumbbells singapore", f"clean should be 'adjustable dumbbells singapore', but it is {clean!r}"
+assert word_count == 3, f"word_count should be 3, but it is {word_count!r}. Try len(clean.split())."
+
+@@tip
+When AI cleans keywords, check **what it removes**. "Normalise the keywords" can quietly delete useful words, merge "running shoes" with "running shoe", or strip characters like `&` and `+`. Ask it to print 10 keywords before and after cleaning, side by side, so you can see exactly what changed.
+
+@@quiz
+Which method removes spaces at the start and end of a string?
+@@option*
+`.strip()`
+@@option
+`.lower()`
+@@option
+`.split()`
+@@option
+`.replace()`
+@@explain
+`.strip()` removes spaces (and tabs and line breaks) from both ends. It doesn't touch spaces between words.
+
+@@lesson f-strings and title tag length
+@@text
+An **f-string** puts values into text. Write `f` before the opening quote, then put variable names inside curly brackets `{ }`. It is perfect for templates like title tags, meta descriptions and report lines.
+
+`len()` counts the characters in a string, including spaces.
+
+@@example A title tag from a template
+product = "Adjustable Dumbbells 24kg"
+brand = "Sweat & Co"
+
+title = f"{product} | Free Delivery in Singapore | {brand}"
+print(title)
+print(len(title), "characters")
+
+@@text
+Google cuts off long titles in search results. It does this by **pixel width** (roughly 600 pixels on desktop), not by a fixed number of characters. Wide letters like W take more space than narrow ones like i. **About 60 characters** is a common rule of thumb, and this course uses 60.
+
+f-strings can also format numbers. Put a colon and a format code after the name:
+
+@@example Formatting numbers
+ctr = 0.01634
+impressions = 14200
+price = 1299
+
+print(f"CTR: {ctr:.2%}")                 # .2% = percentage with 2 decimals
+print(f"Impressions: {impressions:,}")   # , = thousands separator
+print(f"Price: S${price:,}")
+
+@@exercise Build and check a title tag
+Use an f-string to build this title from `product`:
+
+`Foldable Treadmill T200 for HDB Flats | Sweat & Co`
+
+Then store its length in `title_length`, and store `True` in `is_ok` if it is 60 characters or fewer (otherwise `False`).
+
+@@starter
+product = "Foldable Treadmill T200"
+
+title = None          # use an f-string with {product}
+title_length = None   # use len()
+is_ok = None          # True if 60 characters or fewer
+
+print(title, title_length, is_ok)
+
+@@hint
+`title = f"{product} for HDB Flats | Sweat & Co"`. For `is_ok`, a comparison like `title_length <= 60` already gives `True` or `False`.
+
+@@solution
+product = "Foldable Treadmill T200"
+
+title = f"{product} for HDB Flats | Sweat & Co"
+title_length = len(title)
+is_ok = title_length <= 60
+
+print(title, title_length, is_ok)
+
+@@check
+assert title == "Foldable Treadmill T200 for HDB Flats | Sweat & Co", f"title should be 'Foldable Treadmill T200 for HDB Flats | Sweat & Co', but it is {title!r}"
+assert title_length == len(title), "title_length should be len(title)."
+assert is_ok is True, "is_ok should be True: the title is 50 characters, which is 60 or fewer."
+
+@@exercise A meta description template
+Build this meta description with an f-string, using `product` and `price`. The price needs a thousands separator.
+
+`Buy the Spin Bike S1 for S$1,299 at Sweat & Co. Free delivery across Singapore.`
+
+@@starter
+product = "Spin Bike S1"
+price = 1299
+
+meta = None
+
+print(meta)
+print(len(meta or ""), "characters")
+
+@@hint
+Inside an f-string, `{price:,}` shows 1299 as `1,299`. Put `S$` right before it: `S${price:,}`.
+
+@@solution
+product = "Spin Bike S1"
+price = 1299
+
+meta = f"Buy the {product} for S${price:,} at Sweat & Co. Free delivery across Singapore."
+
+print(meta)
+print(len(meta or ""), "characters")
+
+@@check
+want = "Buy the Spin Bike S1 for S$1,299 at Sweat & Co. Free delivery across Singapore."
+assert isinstance(meta, str), "meta should be text. Build it with an f-string."
+assert "1299" not in meta, "Add the thousands separator: {price:,} shows 1,299."
+assert meta == want, f"Not the same text yet. You have: {meta!r}"
+
+@@tip
+AI often writes title checks as `len(title) > 60` and calls them "pixel-perfect". They aren't. Character count is a quick filter, not the real truncation rule. If precision matters, ask for a **pixel-width estimate** and check a few titles in a SERP preview tool. Also check that templates handle empty values: what happens when `product` is blank?
+
+@@quiz
+What does `len("Sweat & Co")` return?
+@@option
+`9`
+@@option*
+`10`
+@@option
+`8`
+@@option
+`3`
+@@explain
+`len()` counts every character, including the spaces and the `&`: S-w-e-a-t (5), space (6), & (7), space (8), C-o (10).
+
+@@lesson Searching inside text with `in`
+@@text
+`in` checks if one piece of text is inside another. The answer is `True` or `False`.
+
+`in` is **case-sensitive**: `"Yoga"` and `"yoga"` are different. To compare fairly, make both sides lowercase first.
+
+@@example in and lowercase
+title = "Yoga Mats Singapore | Non-Slip & Eco-Friendly | Sweat & Co"
+
+print("Yoga" in title)            # True
+print("yoga" in title)            # False: capitals matter
+print("yoga" in title.lower())    # True: lowercase compared with lowercase
+print("Sweat & Co" in title)      # is the brand in the title?
+
+@@text
+Three more methods are useful for URLs:
+
+@@example startswith, endswith and count
+url = "http://www.sweatandco.sg/collections/yoga-mats/"
+
+print(url.startswith("https://"))   # False: this URL is not HTTPS
+print(url.endswith("/"))            # True: it has a trailing slash
+print(url.count("/"))               # how many slashes in the URL
+
+@@exercise Keyword in title, and HTTPS
+- Store in `keyword_in_title` whether the keyword appears in the title, **ignoring capitals**.
+- Store in `is_https` whether the URL starts with `https://`.
+
+@@starter
+keyword = "resistance bands singapore"
+title = "Resistance Bands Singapore | Sweat & Co"
+url = "http://www.sweatandco.sg/collections/resistance-bands"
+
+keyword_in_title = None
+is_https = None
+
+print(keyword_in_title, is_https)
+
+@@hint
+`keyword.lower() in title.lower()` compares both in lowercase. For the URL, use `url.startswith("https://")`.
+
+@@solution
+keyword = "resistance bands singapore"
+title = "Resistance Bands Singapore | Sweat & Co"
+url = "http://www.sweatandco.sg/collections/resistance-bands"
+
+keyword_in_title = keyword.lower() in title.lower()
+is_https = url.startswith("https://")
+
+print(keyword_in_title, is_https)
+
+@@check
+assert keyword_in_title is True, "keyword_in_title should be True. Did you make both sides lowercase?"
+assert is_https is False, "is_https should be False: this URL starts with http:// (no s)."
+
+@@tip
+`in` matches **parts of words** too: `"pro" in "gym programme"` is `True`. When AI checks if a brand or keyword is "in" text, ask whether it should match **whole words only**, and test it with a tricky example. You'll see the whole-word fix in Module 8.
+
+@@quiz
+What is the result of `"Yoga" in "yoga mats singapore"`?
+@@option
+`True`
+@@option*
+`False`
+@@option
+An error
+@@option
+`"yoga"`
+@@explain
+`in` is case-sensitive, and "Yoga" with a capital Y doesn't appear in the lowercase text. Use `.lower()` on both sides to ignore capitals.
+
+@@lesson Building URL slugs
+@@text
+A **slug** is the readable part of a URL that names the page: `/blog/hdb-home-gym-ideas`. Good slugs are lowercase, use hyphens between words, and have no spaces or symbols.
+
+You can **chain** methods: each one works on the result of the one before it.
+
+@@example A basic slug
+title = "  HDB Home Gym Ideas  "
+
+slug = title.strip().lower()
+slug = slug.replace(" ", "-")
+print(slug)
+print(f"https://www.sweatandco.sg/blog/{slug}")
+
+@@example Removing punctuation
+title = "Rowing Machine vs Treadmill: Which Is Better?"
+
+slug = title.lower().replace(":", "").replace("?", "").replace(" ", "-")
+print(slug)
+
+@@exercise Slug for a buying guide
+Turn the title into `kettlebells-and-dumbbells-buying-guide`: lowercase, `&` becomes `and`, the colon is removed and spaces become hyphens.
+
+@@starter
+title = "Kettlebells & Dumbbells: Buying Guide"
+
+slug = title.lower()
+# add more steps here: "&" becomes "and", remove ":", spaces become "-"
+
+print(slug)
+
+@@hint
+Add three more steps: `slug = slug.replace("&", "and")`, then remove the colon with `.replace(":", "")`, then `.replace(" ", "-")`. Do the spaces last.
+
+@@solution
+title = "Kettlebells & Dumbbells: Buying Guide"
+
+slug = title.lower()
+slug = slug.replace("&", "and")
+slug = slug.replace(":", "")
+slug = slug.replace(" ", "-")
+
+print(slug)
+
+@@check
+assert slug == "kettlebells-and-dumbbells-buying-guide", f"Expected 'kettlebells-and-dumbbells-buying-guide', but got {slug!r}"
+
+@@bug Slug for a product page
+The AI wrote this slug code. There's no error, but the output is wrong. The slug should be `pull-up-bar-no-screws-needed`. Fix it.
+
+@@code
+title = "  Pull Up Bar No Screws Needed  "
+
+slug = title
+slug.strip()
+slug.lower()
+slug = slug.replace(" ", "-")
+
+print(slug)
+
+@@hint
+Look at lines 4 and 5. Where does the result of `.strip()` and `.lower()` go?
+
+@@solution
+title = "  Pull Up Bar No Screws Needed  "
+
+slug = title
+slug = slug.strip()
+slug = slug.lower()
+slug = slug.replace(" ", "-")
+
+print(slug)
+
+@@explain
+String methods never change a string in place. `slug.strip()` makes a new, stripped string, but the code never saved it, so it was thrown away. You must write `slug = slug.strip()`. This is a **silent bug**: no error, just wrong output. That's why you should always print and look at your results.
+
+@@check
+assert slug == "pull-up-bar-no-screws-needed", f"Expected 'pull-up-bar-no-screws-needed', but got {slug!r}"
+
+@@tip
+AI usually writes slug code with a **regular expression**, like `re.sub(r"[^a-z0-9]+", "-", text)`. Ask it to explain the pattern in plain words, then test it with tricky titles: `&`, apostrophes ("Men's"), double spaces, accents (é), and punctuation at the end. Look for double hyphens `--` and hyphens at the start or end.
+
+@@quiz
+What does this code print?
+
+```
+name = "YOGA"
+name.lower()
+print(name)
+```
+@@option*
+`YOGA`
+@@option
+`yoga`
+@@option
+An error
+@@option
+`None`
+@@explain
+`name.lower()` made a new lowercase string, but nobody saved it. `name` still holds `"YOGA"`. To keep the change, write `name = name.lower()`.

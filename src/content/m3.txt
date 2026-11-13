@@ -1,0 +1,470 @@
+@id module-3
+@num 3
+@title Module 3: Lists, loops and decisions
+@short Lists, loops and decisions
+@path module-3 › lists-loops
+@time Week 3
+@desc Store many keywords in a list, repeat steps with for loops, make decisions with if / elif / else, and map keywords to search volumes with dictionaries.
+@goal Work on hundreds of keywords at once: loop through them, label them by intent and look up their search volume.
+
+@@lesson Lists: many values in one place
+@@text
+A **list** holds many values in order, inside square brackets and separated by commas. It is like one column in a spreadsheet.
+
+Each item has a **position** (also called an index). Python starts counting at **0**, so the first item is `[0]`. `[-1]` is the last item.
+
+@@example A keyword list
+keywords = ["yoga mat singapore", "adjustable dumbbells", "foldable treadmill", "hdb home gym ideas"]
+
+print(keywords)
+print(len(keywords), "keywords")
+print(keywords[0])     # the first item is at position 0
+print(keywords[-1])    # -1 means the last item
+
+@@example Adding, slicing and checking
+keywords = ["yoga mat singapore", "adjustable dumbbells"]
+
+keywords.append("pull up bar no screws")   # add an item to the end
+print(keywords)
+print(keywords[0:2])                        # items at positions 0 and 1 (stops before 2)
+print("adjustable dumbbells" in keywords)   # is it in the list?
+
+@@text
+Lists of numbers work with a few built-in helpers: `sum()` adds them up, and `min()` and `max()` find the smallest and largest.
+
+@@exercise Position summary
+Here are the average positions of five Sweat & Co pages. Store:
+
+- `count`: how many positions there are
+- `best`: the best position (the **smallest** number)
+- `worst`: the worst position
+- `average`: the average, rounded to 1 decimal
+
+@@starter
+positions = [3.9, 11.4, 5.6, 9.2, 2.8]
+
+count = None
+best = None
+worst = None
+average = None
+
+print(count, best, worst, average)
+
+@@hint
+Use `len(positions)`, `min(positions)` and `max(positions)`. The average is `sum(positions) / len(positions)`, wrapped in `round(..., 1)`.
+
+@@solution
+positions = [3.9, 11.4, 5.6, 9.2, 2.8]
+
+count = len(positions)
+best = min(positions)
+worst = max(positions)
+average = round(sum(positions) / len(positions), 1)
+
+print(count, best, worst, average)
+
+@@check
+assert count == 5, f"count should be 5, but it is {count!r}."
+assert best == 2.8, f"best should be 2.8: in search, the smallest position number is the best. You have {best!r}."
+assert worst == 11.4, f"worst should be 11.4, but it is {worst!r}."
+assert average == 6.6, f"average should be 6.6 (32.9 / 5, rounded to 1 decimal), but it is {average!r}."
+
+@@tip
+An average of positions can mislead. Search Console's own "average position" is **weighted by impressions**, so a simple average of page positions won't match the number in the Search Console UI. If an AI script reports "average position", ask: "Is this a simple average or weighted by impressions?"
+
+@@quiz
+`pages = ["/", "/blog", "/cart"]`. What is `pages[1]`?
+@@option
+`"/"`
+@@option*
+`"/blog"`
+@@option
+`"/cart"`
+@@option
+An error
+@@explain
+Positions start at 0, so `pages[0]` is `"/"` and `pages[1]` is `"/blog"`.
+
+@@lesson for loops: repeat for every item
+@@text
+A **for loop** repeats the same steps for each item in a list. This is where Python starts saving you hours.
+
+```
+for title in titles:
+    print(title)
+```
+
+Read it as: "for each title in the list of titles, print it". Two rules:
+
+1. The `for` line ends with a colon `:`.
+2. The lines inside the loop are **indented by 4 spaces**. Indentation is how Python knows which lines repeat.
+
+@@example Loop through titles
+titles = [
+    "Yoga Mats Singapore | Sweat & Co",
+    "Adjustable Dumbbells 24kg | Free Delivery in Singapore | Sweat & Co",
+    "HDB Home Gym Ideas",
+]
+
+for title in titles:
+    print(len(title), title)
+
+print("Done!")   # not indented, so it runs once, after the loop
+
+@@text
+A very common pattern is **start with an empty list, loop, and add the items you want**. The `if` line here keeps only some items. You will learn `if` properly in the next lesson.
+
+@@example Build a new list
+keywords = ["yoga mat singapore", "how to use resistance bands", "treadmill singapore", "what is a kettlebell"]
+
+singapore_keywords = []          # start with an empty list
+for kw in keywords:
+    if "singapore" in kw:
+        singapore_keywords.append(kw)
+
+print(singapore_keywords)
+print(len(singapore_keywords), "of", len(keywords), "keywords mention singapore")
+
+@@exercise Find titles that are too long
+Loop through `titles` and add every title **longer than 60 characters** to the list `too_long`.
+
+@@starter
+titles = [
+    "Yoga Mats Singapore | Non-Slip & Eco-Friendly | Sweat & Co",
+    "HDB Home Gym Ideas: 12 Space-Saving Setups for Small Flats | Sweat & Co",
+    "Resistance Bands | Sweat & Co",
+    "Foldable Treadmills for HDB Flats: Quiet, Compact & Free Delivery | Sweat & Co",
+    "Spin Bike S1 | Sweat & Co",
+]
+
+too_long = []
+# write your loop here
+
+print(len(too_long), "titles are too long:")
+print(too_long)
+
+@@hint
+```
+for title in titles:
+    if len(title) > 60:
+        too_long.append(title)
+```
+
+@@solution
+titles = [
+    "Yoga Mats Singapore | Non-Slip & Eco-Friendly | Sweat & Co",
+    "HDB Home Gym Ideas: 12 Space-Saving Setups for Small Flats | Sweat & Co",
+    "Resistance Bands | Sweat & Co",
+    "Foldable Treadmills for HDB Flats: Quiet, Compact & Free Delivery | Sweat & Co",
+    "Spin Bike S1 | Sweat & Co",
+]
+
+too_long = []
+for title in titles:
+    if len(title) > 60:
+        too_long.append(title)
+
+print(len(too_long), "titles are too long:")
+print(too_long)
+
+@@check
+expected = [
+    "HDB Home Gym Ideas: 12 Space-Saving Setups for Small Flats | Sweat & Co",
+    "Foldable Treadmills for HDB Flats: Quiet, Compact & Free Delivery | Sweat & Co",
+]
+assert isinstance(too_long, list), "too_long should stay a list."
+assert len(too_long) == 2, f"There are 2 titles over 60 characters, but too_long has {len(too_long)}."
+assert too_long == expected, "too_long has the wrong titles. Check you used > 60 and len(title)."
+
+@@tip
+In AI-written loops, check **what is inside the loop and what is outside**. A `print` or `append` that is indented one level too far (or not far enough) runs a different number of times, and there is often no error. Ask the AI to print how many items went in and how many came out.
+
+@@quiz
+In this code, how many times does `print("Done")` run?
+
+```
+for kw in ["a", "b", "c"]:
+    print(kw)
+print("Done")
+```
+@@option
+3 times
+@@option*
+Once
+@@option
+4 times
+@@option
+Never
+@@explain
+`print("Done")` is not indented, so it is outside the loop. It runs once, after the loop finishes.
+
+@@lesson Decisions: if, elif and else
+@@text
+`if` runs code only when a condition is `True`. `elif` ("else if") checks another condition, and `else` catches everything left over.
+
+Python checks them **from top to bottom and stops at the first one that is true**.
+
+| Comparison | Meaning |
+|---|---|
+| `==` | is equal to (two equals signs!) |
+| `!=` | is not equal to |
+| `>` and `<` | greater than, less than |
+| `>=` and `<=` | greater or equal, less or equal |
+
+You can combine conditions with `and` / `or`.
+
+@@example Position buckets
+position = 7.3
+
+if position <= 3:
+    print("Top 3")
+elif position <= 10:
+    print("Page 1")
+elif position <= 20:
+    print("Page 2")
+else:
+    print("Page 3 or lower")
+
+@@example Combining conditions
+impressions = 7600
+ctr = 0.0116
+
+if impressions > 5000 and ctr < 0.02:
+    print("Quick win: lots of impressions but a low CTR. Rewrite the title and meta description.")
+else:
+    print("Not a priority")
+
+@@exercise A keyword intent classifier
+Label each keyword:
+
+- `"informational"` if it contains `"how"`, `"what"`, `"why"`, `"ideas"` or `"guide"`
+- otherwise `"commercial"` if it contains `"buy"`, `"best"`, `"price"`, `"review"` or `"singapore"`
+- otherwise `"unknown"`
+
+Add each label to the list `labels`, in the same order as the keywords.
+
+@@starter
+keywords = [
+    "how to use resistance bands",
+    "buy dumbbells online singapore",
+    "hdb home gym ideas",
+    "adjustable dumbbells review",
+    "what is the best home workout equipment",
+    "yoga mat singapore",
+    "sweat and co",
+]
+
+labels = []
+for kw in keywords:
+    label = "unknown"
+    # add your if / elif / else here
+
+    labels.append(label)
+
+for kw, label in zip(keywords, labels):
+    print(f"{label:14} {kw}")
+
+@@hint
+```
+    if "how" in kw or "what" in kw or "why" in kw or "ideas" in kw or "guide" in kw:
+        label = "informational"
+    elif "buy" in kw or "best" in kw or ...:
+        label = "commercial"
+    else:
+        label = "unknown"
+```
+Note that you need `... in kw` after **each** word. `"how" or "what" in kw` does not work.
+
+@@solution
+keywords = [
+    "how to use resistance bands",
+    "buy dumbbells online singapore",
+    "hdb home gym ideas",
+    "adjustable dumbbells review",
+    "what is the best home workout equipment",
+    "yoga mat singapore",
+    "sweat and co",
+]
+
+labels = []
+for kw in keywords:
+    if "how" in kw or "what" in kw or "why" in kw or "ideas" in kw or "guide" in kw:
+        label = "informational"
+    elif "buy" in kw or "best" in kw or "price" in kw or "review" in kw or "singapore" in kw:
+        label = "commercial"
+    else:
+        label = "unknown"
+    labels.append(label)
+
+for kw, label in zip(keywords, labels):
+    print(f"{label:14} {kw}")
+
+@@check
+expected = ["informational", "commercial", "informational", "commercial", "informational", "commercial", "unknown"]
+assert len(labels) == 7, f"labels should have 7 items (one per keyword), but has {len(labels)}."
+for kw, got, want in zip(keywords, labels, expected):
+    assert got == want, f'"{kw}" should be {want!r}, but your code says {got!r}.'
+
+@@bug Intent labels that keep changing
+The AI wrote this classifier. It runs with no error, but "how to use resistance bands" comes out as `unknown`. Fix it so the labels match the rules from the exercise above.
+
+@@code
+keywords = ["how to use resistance bands", "best yoga mat singapore", "hdb home gym ideas", "kettlebell"]
+
+labels = []
+for kw in keywords:
+    if "how" in kw or "what" in kw or "ideas" in kw or "guide" in kw:
+        label = "informational"
+    if "buy" in kw or "best" in kw or "singapore" in kw:
+        label = "commercial"
+    else:
+        label = "unknown"
+    labels.append(label)
+
+print(labels)
+
+@@hint
+How many separate `if` blocks are there? The `else` belongs only to the `if` right above it.
+
+@@solution
+keywords = ["how to use resistance bands", "best yoga mat singapore", "hdb home gym ideas", "kettlebell"]
+
+labels = []
+for kw in keywords:
+    if "how" in kw or "what" in kw or "ideas" in kw or "guide" in kw:
+        label = "informational"
+    elif "buy" in kw or "best" in kw or "singapore" in kw:
+        label = "commercial"
+    else:
+        label = "unknown"
+    labels.append(label)
+
+print(labels)
+
+@@explain
+The second line started a **new** `if` instead of `elif`. So for "how to use resistance bands", the first `if` set "informational", then the second `if` was False, so its `else` replaced the label with "unknown". With `elif`, Python stops at the first true condition, and the label stays.
+
+@@check
+assert labels == ["informational", "commercial", "informational", "unknown"], f"Expected ['informational', 'commercial', 'informational', 'unknown'], but got {labels}"
+
+@@tip
+When AI writes rules like this, ask: **"What happens if a keyword matches two rules? Which one should win?"** Then test with a keyword that matches both, like "what is the best treadmill". Also watch for `if "how" or "what" in kw`: it looks right but is always True, because `"how"` on its own counts as True.
+
+@@quiz
+Python reaches an `if` / `elif` / `elif` / `else` chain. Two of the conditions are True. What runs?
+@@option
+Both true blocks
+@@option*
+Only the first true block
+@@option
+Only the else block
+@@option
+Nothing, because it's an error
+@@explain
+Python checks from the top and stops at the first true condition. That is the whole point of `elif`: exactly one block runs.
+
+@@lesson Dictionaries: keyword → search volume
+@@text
+A **dictionary** (`dict`) connects **keys** to **values**, like a two-column lookup table. It uses curly brackets: `{"yoga mat singapore": 1900}`.
+
+- `volumes["yoga mat singapore"]` gets a value. It gives a `KeyError` if the key isn't there.
+- `volumes.get("kettlebell singapore", 0)` is safer: it returns `0` if the key is missing.
+- `volumes["new keyword"] = 590` adds or updates a key.
+- `.items()` lets you loop through key and value together.
+
+@@example Keyword volumes
+volumes = {
+    "yoga mat singapore": 1900,
+    "adjustable dumbbells singapore": 880,
+    "foldable treadmill singapore": 720,
+    "hdb home gym ideas": 390,
+}
+
+print(volumes["yoga mat singapore"])
+print(volumes.get("kettlebell singapore", 0))   # missing: gives 0 instead of an error
+volumes["kettlebell singapore"] = 590            # add a new keyword
+print(len(volumes), "keywords")
+
+@@example Looping through a dictionary
+volumes = {
+    "yoga mat singapore": 1900,
+    "adjustable dumbbells singapore": 880,
+    "foldable treadmill singapore": 720,
+    "hdb home gym ideas": 390,
+}
+
+for keyword, volume in volumes.items():
+    if volume >= 700:
+        print(f"{keyword}: {volume} (priority)")
+    else:
+        print(f"{keyword}: {volume}")
+
+@@text
+A dictionary can also describe **one thing**, like one row of a Search Console export. A list of these dictionaries is basically a table, and that's exactly what pandas works with in Module 5.
+
+@@example One page as a dictionary
+page = {"url": "/collections/yoga-mats", "clicks": 310, "impressions": 12600, "position": 3.9}
+
+ctr = page["clicks"] / page["impressions"]
+print(f"{page['url']} has a CTR of {ctr:.2%} at position {page['position']}")
+
+@@exercise Total volume and priority keywords
+Store the total search volume of all keywords in `total_volume`. Then build a list `priority` with every keyword that has a volume of **500 or more**.
+
+@@starter
+volumes = {
+    "yoga mat singapore": 1900,
+    "adjustable dumbbells singapore": 880,
+    "foldable treadmill singapore": 720,
+    "kettlebell singapore": 590,
+    "hdb home gym ideas": 390,
+    "pull up bar no screws": 170,
+}
+
+total_volume = None
+priority = []
+
+print(total_volume)
+print(priority)
+
+@@hint
+`sum(volumes.values())` adds up all the values. For `priority`, loop with `for keyword, volume in volumes.items():` and `append` the keyword when `volume >= 500`.
+
+@@solution
+volumes = {
+    "yoga mat singapore": 1900,
+    "adjustable dumbbells singapore": 880,
+    "foldable treadmill singapore": 720,
+    "kettlebell singapore": 590,
+    "hdb home gym ideas": 390,
+    "pull up bar no screws": 170,
+}
+
+total_volume = sum(volumes.values())
+priority = []
+for keyword, volume in volumes.items():
+    if volume >= 500:
+        priority.append(keyword)
+
+print(total_volume)
+print(priority)
+
+@@check
+assert total_volume == 4650, f"total_volume should be 4650, but it is {total_volume!r}."
+assert sorted(priority) == sorted(["yoga mat singapore", "adjustable dumbbells singapore", "foldable treadmill singapore", "kettlebell singapore"]), f"priority should have the 4 keywords with 500 or more. You have {priority}"
+
+@@tip
+Dictionaries **silently overwrite**: if the same keyword appears twice, only the last value is kept. No error, no warning. When AI turns a keyword list into a dict, ask it to **count the keywords before and after**. If the numbers differ, you had duplicates and lost data.
+
+@@quiz
+What does `{"a": 1, "a": 5}["a"]` give?
+@@option
+`1`
+@@option*
+`5`
+@@option
+`[1, 5]`
+@@option
+A `KeyError`
+@@explain
+A key can only appear once. The second `"a"` overwrites the first without any warning, so the value is `5`.

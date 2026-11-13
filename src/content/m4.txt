@@ -1,0 +1,464 @@
+@id module-4
+@num 4
+@title Module 4: Functions, your own SEO tools
+@short Functions
+@path module-4 › functions
+@time Week 4
+@desc Package your steps into reusable tools: make_slug(title), check_title_length(title, max_len=60) and classify_intent(keyword). Learn why return matters, and how to test a function in one line.
+@goal Write small functions that take an input and return a result, and test them so you can trust them (and the AI's).
+
+@@setup
+BRAND_WORDS = ["sweat", "sweatandco"]
+INFO_WORDS = ["how", "what", "why", "guide", "ideas", "tips"]
+COMMERCIAL_WORDS = ["buy", "price", "best", "review", "singapore", "sale", "cheap", "delivery"]
+
+
+def classify_intent(keyword):
+    words = keyword.lower().split()
+    for w in BRAND_WORDS:
+        if w in words:
+            return "navigational"
+    for w in INFO_WORDS:
+        if w in words:
+            return "informational"
+    for w in COMMERCIAL_WORDS:
+        if w in words:
+            return "commercial"
+    return "unknown"
+
+@@lesson What a function is: def and return
+@@text
+A **function** is a reusable recipe. You give it a name and some inputs, and it gives back a result. You already use functions: `print()`, `len()` and `round()`.
+
+You make your own with `def`:
+
+```
+def make_slug(title):          # name and input (parameter)
+    slug = title.lower()       # the steps, indented 4 spaces
+    return slug                # the result it gives back
+```
+
+Then you **call** it as many times as you like: `make_slug("HDB Home Gym Ideas")`. You write the steps once, and you can fix them in one place.
+
+@@example Your first function
+def make_slug(title):
+    slug = title.strip().lower()
+    slug = slug.replace(" ", "-")
+    return slug
+
+print(make_slug("HDB Home Gym Ideas"))
+print(make_slug("  Yoga Mats  "))
+
+url = "https://www.sweatandco.sg/blog/" + make_slug("Rowing Machine Guide")
+print(url)
+
+@@exercise Make make_slug smarter
+Improve `make_slug` so that it:
+
+- turns `&` into `and`
+- removes `:` `?` and `,`
+- strips spaces at both ends, makes everything lowercase, and turns spaces into hyphens
+
+The check tests it with three tricky titles.
+
+@@starter
+def make_slug(title):
+    slug = title.strip().lower()
+    slug = slug.replace(" ", "-")
+    return slug
+
+print(make_slug("Kettlebells & Dumbbells: Buying Guide"))
+print(make_slug("Rowing Machine vs Treadmill: Which Is Better?"))
+print(make_slug("  Yoga Mats, Blocks & Straps "))
+
+@@hint
+Add the new steps **before** spaces become hyphens. You can remove several characters with a small loop:
+
+```
+for ch in [":", "?", ","]:
+    slug = slug.replace(ch, "")
+```
+
+@@solution
+def make_slug(title):
+    slug = title.strip().lower()
+    slug = slug.replace("&", "and")
+    for ch in [":", "?", ","]:
+        slug = slug.replace(ch, "")
+    slug = slug.replace(" ", "-")
+    return slug
+
+print(make_slug("Kettlebells & Dumbbells: Buying Guide"))
+print(make_slug("Rowing Machine vs Treadmill: Which Is Better?"))
+print(make_slug("  Yoga Mats, Blocks & Straps "))
+
+@@check
+cases = {
+    "Kettlebells & Dumbbells: Buying Guide": "kettlebells-and-dumbbells-buying-guide",
+    "Rowing Machine vs Treadmill: Which Is Better?": "rowing-machine-vs-treadmill-which-is-better",
+    "  Yoga Mats, Blocks & Straps ": "yoga-mats-blocks-and-straps",
+}
+for title, want in cases.items():
+    got = make_slug(title)
+    assert got is not None, "make_slug returned None. Does it end with return slug?"
+    assert got == want, f'make_slug("{title}") gave {got!r}, expected {want!r}.'
+
+@@tip
+Ask AI for **small functions that each do one job**, not one giant script. It is much easier to check `make_slug()` on its own than a 200-line script that crawls, cleans and exports all at once. A good prompt: "Split this into small functions with clear names, and show me an example input and output for each."
+
+@@quiz
+What does `return` do inside a function?
+@@option
+Prints the result on the screen
+@@option*
+Gives the result back to the code that called the function
+@@option
+Restarts the function
+@@option
+Saves the result to a file
+@@explain
+`return` hands the value back, so you can store it (`slug = make_slug(t)`) or use it in more code. It doesn't print anything. You'll see why this matters in lesson 4.4.
+
+@@lesson Parameters and default values
+@@text
+A function can take **several inputs** (parameters), separated by commas. You can also give a parameter a **default value**. If the caller doesn't pass that input, the default is used:
+
+```
+def check_title_length(title, max_len=60):
+```
+
+Now `check_title_length(t)` uses 60, and `check_title_length(t, max_len=155)` works for meta descriptions. You can also pass inputs **by name**, in any order: `describe_page(clicks=145, impressions=8900, url="/t200")`.
+
+@@example Several parameters
+def describe_page(url, clicks, impressions):
+    ctr = clicks / impressions
+    return f"{url}: {clicks} clicks, CTR {ctr:.2%}"
+
+print(describe_page("/collections/yoga-mats", 310, 12600))
+print(describe_page(clicks=145, impressions=8900, url="/products/foldable-treadmill-t200"))
+
+@@exercise check_title_length(title, max_len=60)
+Write `check_title_length` so it **returns** `True` if the title has `max_len` characters or fewer, and `False` if it is longer. `max_len` should default to 60.
+
+@@starter
+def check_title_length(title, max_len=60):
+    # return True if the title fits, False if it is too long
+    pass
+
+print(check_title_length("Yoga Mats Singapore | Sweat & Co"))
+print(check_title_length("Adjustable Dumbbells 24kg | Free Delivery in Singapore | Sweat & Co"))
+print(check_title_length("Buy the Spin Bike S1 for S$1,299 at Sweat & Co. Free delivery across Singapore.", max_len=155))
+
+@@hint
+One line is enough: `return len(title) <= max_len`. A comparison already gives `True` or `False`.
+
+@@solution
+def check_title_length(title, max_len=60):
+    return len(title) <= max_len
+
+print(check_title_length("Yoga Mats Singapore | Sweat & Co"))
+print(check_title_length("Adjustable Dumbbells 24kg | Free Delivery in Singapore | Sweat & Co"))
+print(check_title_length("Buy the Spin Bike S1 for S$1,299 at Sweat & Co. Free delivery across Singapore.", max_len=155))
+
+@@check
+r = check_title_length("x" * 60)
+assert r is not None, "check_title_length returned None. Use return, not print (and replace pass)."
+assert r is True, "A 60-character title should give True (60 or fewer is fine)."
+assert check_title_length("x" * 61) is False, "A 61-character title should give False."
+assert check_title_length("x" * 100, max_len=155) is True, "With max_len=155, a 100-character text should give True."
+assert check_title_length("x" * 100, 80) is False, "With max_len=80, a 100-character text should give False."
+
+@@exercise A safe CTR function
+Write `calc_ctr(clicks, impressions)` that returns the CTR **as a percentage rounded to 2 decimals**. If `impressions` is 0, return `0` instead of crashing (dividing by zero is an error).
+
+@@starter
+def calc_ctr(clicks, impressions):
+    return round(clicks / impressions * 100, 2)
+
+print(calc_ctr(310, 12600))
+print(calc_ctr(0, 0))     # a new page with no impressions yet
+
+@@hint
+Check for zero first:
+
+```
+    if impressions == 0:
+        return 0
+    return round(...)
+```
+
+@@solution
+def calc_ctr(clicks, impressions):
+    if impressions == 0:
+        return 0
+    return round(clicks / impressions * 100, 2)
+
+print(calc_ctr(310, 12600))
+print(calc_ctr(0, 0))
+
+@@check
+assert calc_ctr(310, 12600) == 2.46, f"calc_ctr(310, 12600) should be 2.46, but got {calc_ctr(310, 12600)!r}."
+assert calc_ctr(145, 8900) == 1.63, "calc_ctr(145, 8900) should be 1.63."
+assert calc_ctr(0, 0) == 0, "calc_ctr(0, 0) should return 0."
+assert calc_ctr(5, 0) == 0, "calc_ctr(5, 0) should return 0, not crash."
+
+@@tip
+Ask the AI: **"What happens with empty or zero inputs?"** New pages have 0 impressions, some titles are empty strings, and some API fields are missing. Good functions handle these cases on purpose. Bad ones crash, or worse, quietly return a wrong number.
+
+@@quiz
+With `def check_title_length(title, max_len=60):`, what does `check_title_length("Hi")` use for `max_len`?
+@@option
+Nothing, so it's an error
+@@option*
+60, the default value
+@@option
+2, the length of "Hi"
+@@option
+155
+@@explain
+When you don't pass `max_len`, Python uses the default from the `def` line, which is 60.
+
+@@lesson Build classify_intent(keyword)
+@@text
+In Module 3 you labelled keywords with `in`. That has a weakness: `"how" in "dumbbell showroom"` is `True`, because "showroom" contains the letters "how".
+
+A more careful method is to split the keyword into **words** and check whole words. Here is a small helper:
+
+@@example Whole words, not letters
+def has_any(keyword, words):
+    kw_words = keyword.lower().split()
+    for w in words:
+        if w in kw_words:     # is w one of the words in the list?
+            return True       # stop as soon as we find one
+    return False
+
+print(has_any("How to use resistance bands", ["how", "what"]))
+print(has_any("Dumbbell showroom Singapore", ["how", "what"]))   # "showroom" is not the word "how"
+
+@@text
+Note the **early return**: as soon as `return True` runs, the function stops. `return False` at the end only runs if no word matched.
+
+@@exercise classify_intent(keyword)
+Write `classify_intent(keyword)` with these rules, checked in this order:
+
+1. any brand word → `"navigational"`
+2. any info word → `"informational"`
+3. any commercial word → `"commercial"`
+4. otherwise → `"unknown"`
+
+Match **whole words** after making the keyword lowercase. The word lists are in the starter.
+
+@@starter
+BRAND_WORDS = ["sweat", "sweatandco"]
+INFO_WORDS = ["how", "what", "why", "guide", "ideas", "tips"]
+COMMERCIAL_WORDS = ["buy", "price", "best", "review", "singapore", "sale", "cheap", "delivery"]
+
+def classify_intent(keyword):
+    words = keyword.lower().split()
+    # 1. brand words -> "navigational"
+    # 2. info words -> "informational"
+    # 3. commercial words -> "commercial"
+    return "unknown"
+
+for kw in ["sweat and co promo code", "how to use resistance bands", "best yoga mat singapore", "kettlebell"]:
+    print(kw, "->", classify_intent(kw))
+
+@@hint
+Use one loop per word list, each with an early return:
+
+```
+    for w in BRAND_WORDS:
+        if w in words:
+            return "navigational"
+```
+
+Then do the same for the other two lists. Keep `return "unknown"` at the very end.
+
+@@solution
+BRAND_WORDS = ["sweat", "sweatandco"]
+INFO_WORDS = ["how", "what", "why", "guide", "ideas", "tips"]
+COMMERCIAL_WORDS = ["buy", "price", "best", "review", "singapore", "sale", "cheap", "delivery"]
+
+def classify_intent(keyword):
+    words = keyword.lower().split()
+    for w in BRAND_WORDS:
+        if w in words:
+            return "navigational"
+    for w in INFO_WORDS:
+        if w in words:
+            return "informational"
+    for w in COMMERCIAL_WORDS:
+        if w in words:
+            return "commercial"
+    return "unknown"
+
+for kw in ["sweat and co promo code", "how to use resistance bands", "best yoga mat singapore", "kettlebell"]:
+    print(kw, "->", classify_intent(kw))
+
+@@check
+cases = {
+    "sweat and co promo code": "navigational",
+    "Sweat & Co yoga mat": "navigational",
+    "how to use resistance bands": "informational",
+    "HDB home gym ideas": "informational",
+    "what is the best treadmill singapore": "informational",
+    "best yoga mat singapore": "commercial",
+    "Buy dumbbells online": "commercial",
+    "kettlebell": "unknown",
+    "dumbbell showroom": "unknown",
+}
+for kw, want in cases.items():
+    got = classify_intent(kw)
+    assert got == want, f'classify_intent("{kw}") returned {got!r}, expected {want!r}.'
+
+@@exercise Count keywords by intent
+The working `classify_intent` from the last exercise is already loaded for you here. Use it on every keyword, and count the labels in a dictionary called `counts`, for example `{"commercial": 4, "informational": 3, ...}`.
+
+@@starter
+keywords = [
+    "yoga mat singapore", "how to use resistance bands", "sweat and co",
+    "best yoga mat for beginners", "hdb home gym ideas", "kettlebell workout for beginners",
+    "treadmill singapore", "what is the best home workout equipment", "sweat and co promo code",
+    "pull up bar no screws",
+]
+
+counts = {}
+for kw in keywords:
+    label = classify_intent(kw)
+    # add 1 to counts[label] here
+
+print(counts)
+
+@@hint
+`counts[label] = counts.get(label, 0) + 1`. The `.get(label, 0)` part gives 0 the first time a label appears.
+
+@@solution
+keywords = [
+    "yoga mat singapore", "how to use resistance bands", "sweat and co",
+    "best yoga mat for beginners", "hdb home gym ideas", "kettlebell workout for beginners",
+    "treadmill singapore", "what is the best home workout equipment", "sweat and co promo code",
+    "pull up bar no screws",
+]
+
+counts = {}
+for kw in keywords:
+    label = classify_intent(kw)
+    counts[label] = counts.get(label, 0) + 1
+
+print(counts)
+
+@@check
+assert counts == {"commercial": 3, "informational": 3, "navigational": 2, "unknown": 2}, f"Expected commercial 3, informational 3, navigational 2, unknown 2. You have {counts}"
+
+@@tip
+Rule-based classifiers like this are fast and easy to check, but they are only as good as their word lists. When an AI offers to "classify intent", ask it to **show the rules or the word lists** and to print 20 random results so you can check them by eye. If it uses an LLM to classify instead, ask how it will check the labels are consistent from one run to the next.
+
+@@quiz
+Why does `classify_intent` split the keyword into words before checking?
+@@option
+To make the code shorter
+@@option*
+So "how" doesn't match inside a different word like "showroom"
+@@option
+Because `in` doesn't work on strings
+@@option
+To remove the capital letters
+@@explain
+`"how" in "dumbbell showroom"` is True, because the letters h-o-w appear inside "showroom". Checking against a list of whole words avoids that false match.
+
+@@lesson print vs return, and testing functions
+@@text
+This is one of the most common beginner mistakes, and AI makes it too:
+
+- `print()` **shows** a value on the screen. The code can't use it after that.
+- `return` **gives** the value back so the code can use it.
+
+A function that has no `return` gives back `None`, which means "nothing".
+
+@@example print vs return
+def ctr_print(clicks, impressions):
+    print(round(clicks / impressions * 100, 2))
+
+def ctr_return(clicks, impressions):
+    return round(clicks / impressions * 100, 2)
+
+a = ctr_print(310, 12600)    # shows 2.46, but gives back nothing
+b = ctr_return(310, 12600)   # shows nothing, but gives back 2.46
+
+print("a is", a)
+print("b is", b)
+
+@@text
+**Testing with assert:** `assert something_true` does nothing. `assert something_false` stops with an `AssertionError`. Writing a few asserts is the fastest way to check a function, including one an AI wrote. This is also how this course checks your exercises.
+
+@@example Quick tests
+def make_slug(title):
+    return title.strip().lower().replace(" ", "-")
+
+assert make_slug("Yoga Mats") == "yoga-mats"
+assert make_slug("  HDB Gym  ") == "hdb-gym"
+print("All tests passed")
+
+@@bug Titles to fix, but the list is empty
+The AI wrote this to list titles over 60 characters. It prints `True` and `False`, then says there are no titles to fix, which is wrong. Fix it.
+
+@@code
+def check_title_length(title, max_len=60):
+    if len(title) <= max_len:
+        print(True)
+    else:
+        print(False)
+
+titles = ["Yoga Mats Singapore | Sweat & Co",
+          "Adjustable Dumbbells 24kg | Free Delivery in Singapore | Sweat & Co"]
+
+too_long = []
+for t in titles:
+    if check_title_length(t) == False:
+        too_long.append(t)
+
+print("Titles to fix:", too_long)
+
+@@hint
+What does `check_title_length(t)` give back? Compare that with what the loop expects.
+
+@@solution
+def check_title_length(title, max_len=60):
+    if len(title) <= max_len:
+        return True
+    else:
+        return False
+
+titles = ["Yoga Mats Singapore | Sweat & Co",
+          "Adjustable Dumbbells 24kg | Free Delivery in Singapore | Sweat & Co"]
+
+too_long = []
+for t in titles:
+    if check_title_length(t) == False:
+        too_long.append(t)
+
+print("Titles to fix:", too_long)
+
+@@explain
+The function **printed** True or False but **returned** nothing, so `check_title_length(t)` was always `None`. `None == False` is False, so nothing was ever added to `too_long`. Changing `print` to `return` fixes it. This bug is dangerous because the screen *looks* right (you can see True and False printed) while the result is wrong.
+
+@@check
+assert check_title_length("x" * 61) is False, "check_title_length should return False for a 61-character title (use return, not print)."
+assert check_title_length("x" * 10) is True, "check_title_length should return True for a short title."
+assert too_long == ["Adjustable Dumbbells 24kg | Free Delivery in Singapore | Sweat & Co"], f"too_long should contain the one long title. You have {too_long}"
+
+@@tip
+When you see `None` in AI output, or the error `'NoneType' object has no attribute ...`, look for a function that **prints instead of returning**, or a step whose result was never saved. A good habit is to ask: "Add three assert tests for each function, including one tricky case."
+
+@@quiz
+A function has no `return` line. What does it give back?
+@@option
+`0`
+@@option
+An empty string `""`
+@@option*
+`None`
+@@option
+Whatever it printed last
+@@explain
+Without `return`, a function gives back `None`. Anything it printed only appeared on the screen. It wasn't handed back to the code.

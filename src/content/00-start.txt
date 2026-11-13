@@ -1,0 +1,65 @@
+@id start
+@num 0
+@kind page
+@title Python for SEO & GEO: start here
+@short Start here
+@path start
+@time About 10 weeks, 20–30 minutes a day
+@desc A hands-on course for SEO and GEO specialists. Learn enough Python to automate your own work, and to check the code that Claude or ChatGPT writes for you.
+@goal Understand how the course works, try your first code cell, and plan your 10 weeks.
+
+@@lesson Welcome
+@@text
+This course is for SEO and GEO people, not developers. You will not become a software engineer here, and you don't need to. You will learn to **read, change and fix** Python well enough to:
+
+- **automate your own SEO work**, like Search Console reports, on-page audits and AI-visibility tracking
+- **supervise AI-written code**: spot when Claude or ChatGPT gets something wrong before it reaches a client report
+
+All the sample data is for a fictional Singapore home-fitness store, **Sweat & Co** (sweatandco.sg), and its competitors **FitHub** and **GymPro**. The numbers look like real exports, but none of it is client data.
+
+Real Python runs inside this page. You don't need to install anything. Look at the **Python: ready** sign in the menu: when it says ready, every Run button works.
+
+@@lesson How the code cells work
+@@text
+There are four kinds of code cells. They have different colours so you can tell them apart:
+
+<div class="legend"><div style="--c:var(--example)"><b>Example</b>A working demo. Run it, change it, break it. Reset puts it back.</div><div style="--c:var(--exercise)"><b>Exercise</b>A small task. Running it also checks your answer: <i>Correct!</i> or <i>Not yet</i> with a reason. Hint and solution buttons are there if you get stuck.</div><div style="--c:var(--bug)"><b>Spot the bug</b>Code "an AI assistant wrote" with one realistic mistake. Find it, fix it, run it.</div><div style="--c:var(--colab)"><b>Run in Colab</b>Code that needs the internet or an API key, so it can't run in this page. Copy it into Google Colab.</div></div>
+
+Useful keys inside a code editor:
+
+- {{Ctrl}} + {{Enter}} (or {{⌘}} + {{Enter}} on a Mac) runs the cell
+- {{Tab}} adds 4 spaces. Python uses spaces to group lines, so this matters.
+- {{Esc}} then {{Tab}} moves out of the editor, if you use the keyboard to get around
+
+Two things to know:
+
+1. **Each cell runs on its own.** The module's sample data is loaded fresh before every run, so you can open any lesson in any order. A variable you make in one cell does not exist in the next cell.
+2. **Your edits are saved in this browser.** Reset brings back the original code.
+
+Try it now. The first run takes a few seconds while Python starts. After that it is fast.
+
+@@example Your first run
+print("Hello, Sweat & Co!")
+print("Python is working.")
+
+@@lesson Your 10-week plan
+@@text
+Do one lesson a day, about 20 to 30 minutes. Each lesson has short explanations, code to run, a "Guiding the AI" tip and a one-question quiz. When you finish a lesson, press **Mark lesson as done**. The menu shows your progress.
+
+| Week | Module | What you can do afterwards |
+|---|---|---|
+| 1 | 1. Getting comfortable | Run code, store numbers, calculate CTR, read an error |
+| 2 | 2. Working with text | Clean keywords, check title length, build URL slugs |
+| 3 | 3. Lists, loops and decisions | Label hundreds of keywords by intent in one go |
+| 4 | 4. Functions | Build your own reusable SEO tools |
+| 5–6 | 5. pandas | Analyse a Search Console export like a pivot table, but faster |
+| 7 | 6. Talking to websites | Run a mini on-page audit: titles, meta, H1, canonical, schema |
+| 8 | 7. APIs and automation | Pull Search Console data with code |
+| 9 | 8. Python for GEO | Measure brand mentions and share of voice in AI answers |
+| 10 | Toolkit + final project | Build one script you will really use, and put it on GitHub |
+
+Module 5 (pandas) is the longest and the most useful. Take your time there.
+
+@@lesson Your progress
+@@text
+Your progress and your code edits are saved in **this browser on this device** only. They are not sent anywhere. If you clear your browser data, use a private window, or open the course on your phone, you start with a clean slate there.

@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.DS_Store
+tests/screenshots/
+tests/results.json
+tests/pyodide_results.json
+tests/last_run.txt

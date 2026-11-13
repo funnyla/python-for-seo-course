@@ -1,0 +1,352 @@
+@id module-1
+@num 1
+@title Module 1: Getting comfortable with Python
+@short Getting comfortable
+@path module-1 › basics
+@time Week 1
+@desc Print messages, write comments, store SEO numbers in variables, calculate CTR, and read your first error message without panic.
+@goal Run your first code, store SEO numbers in variables, calculate CTR, and read an error message from the bottom up.
+
+@@lesson Your first line of Python: print and comments
+@@text
+Python is a way to give the computer instructions, one step at a time. It reads your code **from top to bottom**, one line at a time.
+
+`print()` shows something on the screen. Text must be inside quotes: `"like this"`. Programmers call text a **string**.
+
+A line that starts with `#` is a **comment**. Python skips it. Comments are notes for humans, for example to explain what a step does.
+
+@@example print and comments
+# This is a comment. Python skips this line.
+print("Hello from Sweat & Co!")
+print("Monthly SEO report")
+print(2026)   # numbers don't need quotes
+
+@@text
+`print()` can show several things at once. Put commas between them, and Python adds a space between each one.
+
+@@example Several values in one print
+print("Clicks:", 820)
+print("Pages indexed:", 142, "of", 150)
+
+@@exercise Print a report header
+Make your code print exactly these two lines:
+
+```
+Sweat & Co: SEO report
+Month: November 2026
+```
+
+@@starter
+# Print the first line here
+print("...")
+
+# Print the second line here
+
+@@hint
+You need two `print()` lines. Put the text inside quotes, exactly as shown, including the colon and the capital letters.
+
+@@solution
+print("Sweat & Co: SEO report")
+print("Month: November 2026")
+
+@@check
+lines = [l.strip() for l in printed.strip().splitlines()]
+assert "Sweat & Co: SEO report" in lines, "The first line should be exactly: Sweat & Co: SEO report"
+assert "Month: November 2026" in lines, "The second line should be exactly: Month: November 2026"
+
+@@tip
+When an AI writes code for you, ask it to **add a short comment above each step that explains what it does, for a beginner**. Then read the comments against the code. If a comment says "remove duplicates" but nothing below it does that, you have found a problem before running anything.
+
+@@quiz
+What does Python do with a line that starts with `#`?
+@@option
+It runs that line twice
+@@option*
+It skips it. The line is a comment for humans.
+@@option
+It prints it
+@@option
+It shows an error
+@@explain
+`#` starts a comment. Python ignores everything after `#` on that line, so you can write notes in plain English.
+
+@@lesson Variables and data types
+@@text
+A **variable** is a labelled box that stores a value. `clicks = 820` puts 820 in a box called `clicks`. Here `=` means "store", not "is equal to".
+
+Variable names use lowercase letters and underscores: `avg_position`, not `Avg Position`. They can't contain spaces or start with a number.
+
+Every value has a **type**. You will use these four all the time:
+
+| Type | Name | Example | SEO use |
+|---|---|---|---|
+| `str` | string (text) | `"yoga mat singapore"` | keywords, URLs, titles |
+| `int` | integer (whole number) | `310` | clicks, impressions |
+| `float` | decimal number | `3.9` | position, CTR |
+| `bool` | boolean | `True` or `False` | is indexed? has schema? |
+
+`type()` tells you the type of any value.
+
+@@example Four types
+keyword = "yoga mat singapore"   # str: text
+clicks = 310                     # int: whole number
+position = 3.9                   # float: decimal number
+is_indexed = True                # bool: True or False
+
+print(keyword, clicks, position, is_indexed)
+print(type(keyword))
+print(type(clicks))
+print(type(position))
+print(type(is_indexed))
+
+@@text
+You can change what is in a box. Quotes matter a lot: `310` is a number, but `"310"` is text that only looks like a number. `int()` turns text into a whole number, and `float()` turns it into a decimal.
+
+@@example Changing values and converting types
+clicks = 310
+clicks = clicks + 25      # 25 new clicks came in
+print(clicks)
+
+as_text = "310"
+print(type(as_text))
+print(int(as_text) + 25)  # int() turns the text into a number first
+
+@@exercise Store facts about a page
+Create four variables for the yoga mats page:
+
+- `page_url`: the text `https://www.sweatandco.sg/collections/yoga-mats`
+- `impressions`: the whole number `12600`
+- `avg_position`: the decimal number `3.9`
+- `has_schema`: the boolean `False`
+
+@@starter
+page_url = None
+impressions = None
+avg_position = None
+has_schema = None
+
+print(page_url, impressions, avg_position, has_schema)
+
+@@hint
+Replace each `None`. Text needs quotes. Numbers don't. `False` has a capital F and no quotes.
+
+@@solution
+page_url = "https://www.sweatandco.sg/collections/yoga-mats"
+impressions = 12600
+avg_position = 3.9
+has_schema = False
+
+print(page_url, impressions, avg_position, has_schema)
+
+@@check
+assert isinstance(page_url, str) and page_url.strip() == "https://www.sweatandco.sg/collections/yoga-mats", "page_url should be the yoga mats URL, written as text inside quotes."
+assert not isinstance(impressions, str), "impressions should be a number, so remove the quotes."
+assert type(impressions) is int and impressions == 12600, "impressions should be the whole number 12600."
+assert type(avg_position) is float and avg_position == 3.9, "avg_position should be the decimal number 3.9."
+assert has_schema is False, "has_schema should be False (capital F, no quotes)."
+
+@@tip
+AI code often breaks because numbers arrive as **text** from CSV files, Google Sheets or APIs: `"310"` instead of `310`. When something looks wrong, ask the AI: "What data type is each value here? Add `print(type(...))` to check." Also remember Python is case-sensitive: `True` works, but `true` gives an error.
+
+@@quiz
+Which of these is a `float`?
+@@option
+`"3.9"`
+@@option*
+`3.9`
+@@option
+`39`
+@@option
+`True`
+@@explain
+`3.9` is a decimal number, so it's a float. `"3.9"` has quotes, so it's text (a string). `39` is a whole number (int), and `True` is a bool.
+
+@@lesson SEO maths: calculating CTR
+@@text
+Python works like a calculator:
+
+| Symbol | Meaning | Example | Result |
+|---|---|---|---|
+| `+` | add | `820 + 410` | `1230` |
+| `-` | subtract | `2116 - 1840` | `276` |
+| `*` | multiply | `0.03 * 14200` | `426.0` |
+| `/` | divide | `310 / 12600` | `0.0246...` |
+
+**CTR** (click-through rate) is clicks divided by impressions. The result is a fraction between 0 and 1. Search Console shows it as a percentage, so multiply by 100. `round(number, 2)` keeps 2 decimal places.
+
+@@example CTR for the yoga mats page
+clicks = 310
+impressions = 12600
+
+ctr = clicks / impressions
+print(ctr)                    # a fraction between 0 and 1
+print(round(ctr * 100, 2))    # as a percentage with 2 decimals
+
+@@text
+Python follows normal maths order: `*` and `/` happen before `+` and `-`. Use brackets to control the order, like you would in Excel.
+
+@@example Month-on-month change
+clicks_october = 1840
+clicks_november = 2116
+
+change = clicks_november - clicks_october
+pct_change = (clicks_november - clicks_october) / clicks_october * 100
+
+print("Extra clicks:", change)
+print("Change in %:", round(pct_change, 1))
+
+@@exercise CTR for the treadmill page
+The foldable treadmill page had **145 clicks** and **8,900 impressions**. Store its CTR **as a percentage, rounded to 2 decimals**, in `ctr_percent`.
+
+@@starter
+clicks = 145
+impressions = 8900
+
+ctr_percent = None   # replace None with your calculation
+
+print(ctr_percent)
+
+@@hint
+Divide clicks by impressions, multiply by 100, then wrap it all in `round(..., 2)`.
+
+@@solution
+clicks = 145
+impressions = 8900
+
+ctr_percent = round(clicks / impressions * 100, 2)
+
+print(ctr_percent)
+
+@@check
+assert ctr_percent is not None, "Replace None with your calculation."
+assert isinstance(ctr_percent, (int, float)), "ctr_percent should be a number, not text."
+assert abs(ctr_percent - 0.0163) > 0.001, "That looks like a fraction. Multiply by 100 to get a percentage."
+assert abs(ctr_percent - 1.63) < 0.006, f"Expected about 1.63, but got {ctr_percent}."
+assert ctr_percent == round(ctr_percent, 2), "Round to 2 decimal places with round(..., 2)."
+
+@@exercise How many clicks are we missing?
+The dumbbells page has 14,200 impressions and 190 clicks (CTR 1.34%). If a better title lifted CTR to **3%**, how many clicks would it get, and how many **extra** clicks is that?
+
+Store the answers in `target_clicks` and `extra_clicks`.
+
+@@starter
+impressions = 14200
+current_clicks = 190
+target_ctr = 0.03     # 3% written as a fraction
+
+target_clicks = None
+extra_clicks = None
+
+print("Target clicks:", target_clicks)
+print("Extra clicks:", extra_clicks)
+
+@@hint
+`target_clicks` is impressions times the target CTR. `extra_clicks` is the target minus the clicks you get now.
+
+@@solution
+impressions = 14200
+current_clicks = 190
+target_ctr = 0.03
+
+target_clicks = impressions * target_ctr
+extra_clicks = target_clicks - current_clicks
+
+print("Target clicks:", target_clicks)
+print("Extra clicks:", extra_clicks)
+
+@@check
+assert target_clicks is not None and extra_clicks is not None, "Replace both None values."
+assert abs(target_clicks - 426) < 1, f"target_clicks should be impressions x target_ctr (about 426), but got {target_clicks}."
+assert abs(extra_clicks - 236) < 1, f"extra_clicks should be target_clicks - current_clicks (about 236), but got {extra_clicks}."
+
+@@tip
+A common AI mistake is mixing up **fractions and percentages**: one line uses `0.0163` and another uses `1.63`, and a filter like `ctr < 2` then keeps every row. Ask the AI to use clear names such as `ctr_fraction` and `ctr_percent`. Then check one row by hand with a calculator.
+
+@@quiz
+`clicks = 50` and `impressions = 2000`. What does `print(clicks / impressions * 100)` show?
+@@option
+`0.025`
+@@option*
+`2.5`
+@@option
+`25`
+@@option
+`40`
+@@explain
+50 ÷ 2000 = 0.025, and 0.025 × 100 = 2.5. So the CTR is 2.5%. Python does the division first, then the multiplication, from left to right.
+
+@@lesson Reading your first error message
+@@text
+Errors are normal. Professional developers see them all day. An error is Python telling you **what went wrong and where**.
+
+Read an error **from the bottom up**:
+
+1. The **last line** gives the error type and a message, for example `NameError: name 'clciks' is not defined`.
+2. The **line number** tells you where it happened.
+3. In this course, a box also explains the error in plain English.
+
+Run this cell. It has a typo on purpose.
+
+@@example A typo
+keyword = "pull up bar singapore"
+clicks = 83
+
+print(keyword)
+print(clciks)    # typo on purpose: run me and read the error
+
+@@text
+The first `print` worked: you can see the keyword. Then line 5 stopped with a `NameError`, because there is no variable called `clciks`. Python is very literal: `clciks` and `clicks` are completely different names to it.
+
+Here is another very common error. Python won't join text and a number with `+`.
+
+@@example Text plus a number
+title = "Yoga Mats Singapore"
+length = 19
+print("Title length: " + length)   # run me: text + number is not allowed
+
+@@text
+Two ways to fix it: `print("Title length:", length)` with a comma, or `print("Title length: " + str(length))`, where `str()` turns the number into text. In Module 2 you'll learn a third way, f-strings. The [Toolkit](#toolkit) page has a full error decoder.
+
+@@bug Monthly CTR line
+The AI was asked for a CTR line for the monthly report. The numbers were copied from a CSV file. Run the code, read the error, and fix it so it prints a CTR of about 3.09.
+
+@@code
+# Numbers copied from a CSV file arrive as text
+clicks = "2116"
+impressions = "68400"
+
+ctr_percent = round(clicks / impressions * 100, 2)
+print("CTR:", ctr_percent, "%")
+
+@@hint
+Read the last line of the error. Which **types** does it mention? Python can't divide text by text.
+
+@@solution
+# Numbers copied from a CSV file arrive as text
+clicks = int("2116")
+impressions = int("68400")
+
+ctr_percent = round(clicks / impressions * 100, 2)
+print("CTR:", ctr_percent, "%")
+
+@@explain
+The quotes made both numbers into **text** (`str`), and Python can't divide text. `int()` converts the text into whole numbers first. Removing the quotes also works. Watch for this whenever data comes from files, Sheets or APIs.
+
+@@check
+assert abs(ctr_percent - 3.09) < 0.01, f"Expected a CTR of about 3.09, but got {ctr_percent}."
+
+@@tip
+When you paste an error into Claude or ChatGPT, paste **the whole error and the code**, and say what you expected to happen. Ask it to "explain the cause first, then give the fix". Be careful if a fix just wraps everything in `try:` / `except: pass`. That hides the error instead of fixing it, and your numbers can be wrong without anyone noticing.
+
+@@quiz
+Where should you start reading a Python error message?
+@@option
+The first line
+@@option*
+The last line, then the line number it points to
+@@option
+Anywhere in the middle
+@@option
+Don't read it, just run the code again
+@@explain
+The last line names the error type and gives the message. The line number shows where it happened. Start there, then look at that line in your code.

@@ -1,0 +1,125 @@
+@id toolkit
+@num 99
+@kind page
+@title Toolkit: checklists, templates and next steps
+@short Toolkit
+@path toolkit
+@time Keep this page open
+@desc A checklist for reviewing AI-written code, a prompt template for SEO scripts, an error decoder, final project ideas, how to put your work on GitHub, and the best free resources.
+@goal Use this page every time you ask an AI for code, and when you start your final project.
+
+@@lesson Checklist: reviewing AI-written code
+@@text
+Go through this list **before** you trust a number from an AI-written script, and definitely before it goes into a client report.
+
+### Before you run it
+1. **No secrets in the code.** No API keys, passwords or service-account JSON pasted in. They should come from Colab Secrets or environment variables.
+2. **You understand each step.** Ask: "Explain each step in plain English, for a beginner." If a step's explanation doesn't match its code, ask about it.
+3. **It only does what you asked.** No surprise deletes, no writes to live sites, no huge crawls.
+
+### When you run it
+4. **Check the column names.** Print `df.columns.tolist()` right after loading. Are they exactly what the code expects (`"ctr"` vs `"CTR"`, `"query"` vs `"Top queries"`)?
+5. **Print the shape before and after every big step:** loading, filtering, merging, dropping duplicates. A merge that adds rows, or a filter that keeps 0 rows or all rows, is a red flag.
+6. **Test on 5 rows first.** Use `df.head(5)` or a short URL list. Check those 5 by hand before you run it on 50,000.
+7. **Look for silent failures**, where something is wrong but there's no error:
+  - `try:` / `except: pass` that hides errors
+  - a function that prints instead of returning (you'll see `None`)
+  - string methods whose result was never saved
+  - `.get("key", 0)` with a misspelt key, so every value becomes 0
+  - rows quietly skipped when a page failed to load
+8. **Check that the numbers make sense.**
+  - Does the total match the source? (Search Console UI, the Ahrefs export, the crawl count)
+  - Is CTR a fraction (0.0246) or a percentage (2.46)? Is it calculated from summed clicks and impressions?
+  - Does a 28-day range really have 28 days?
+  - Do percentages that should add up to 100% really add up?
+9. **Read 10 random rows** (`df.sample(10)`). Labels, classifications and extracted values often look fine in summaries but are wrong row by row.
+
+### Before you share it
+10. **Write down the facts behind the report:** date range, data source, the number of rows, what was filtered out, and how metrics like SOV are defined.
+
+@@lesson Prompt template for SEO scripts
+@@text
+Copy this, fill in the brackets and paste it into Claude or ChatGPT. The more exactly you describe your data, the fewer bugs you will get.
+
+```
+I'm an SEO specialist and a Python beginner. Please write a Python script for Google Colab.
+
+GOAL
+[What the script should do, in one or two sentences. Example: find queries with 1,000+
+impressions and a CTR under 2% from my Search Console export, and save them as a CSV.]
+
+INPUT DATA
+- Source: [Search Console website export / Search Console API / Ahrefs export / list of URLs]
+- File name: [Queries.csv]
+- Exact column names: [Top queries, Clicks, Impressions, CTR, Position]
+- Format details: [CTR is text like "2.46%"; about 12,000 rows]
+- Here are the first 3 rows: [paste them]
+
+OUTPUT
+[What I want back: a CSV with columns X, Y, Z sorted by ..., or a chart of ..., or a printed summary.]
+
+RULES
+- Use pandas. Keep it simple and readable. I need to be able to check it.
+- Add a short plain-English comment above each step.
+- Print the shape of the data after loading, after each filter and after each merge.
+- Don't hide errors with try/except: pass. If something fails, say which row or URL and why.
+- Read any API key from Colab Secrets (google.colab.userdata). Never put a key in the code.
+- If you crawl: set a User-Agent, a timeout, a delay between requests, and respect robots.txt.
+- At the end, print a short check I can compare against the source (for example total clicks).
+
+Before the code, list any assumptions you're making about my data.
+After the code, tell me the 3 things most likely to go wrong and how I'd notice.
+```
+
+@@lesson Error decoder
+@@text
+The most common Python errors in SEO scripts, what they mean and what to try. The **last line** of an error tells you which one you have.
+
+{{ERROR_TABLE}}
+
+If you paste an error into an AI, include: the full error, the code, a few rows of your data (or `df.columns.tolist()` and `df.head()`), and what you expected to happen.
+
+@@lesson Final project ideas
+@@text
+Pick **one** project and build it in week 10. Use your own data in Colab, and use the course modules as building blocks.
+
+### 1. Automated monthly GEO visibility report
+- **Input:** a list of 10–20 prompts that matter to a client, and the brand + competitor aliases.
+- **Steps:** run each prompt 5+ times through an LLM API (Module 8), or load an export from your tracking tool. Detect mentions with whole-word matching, extract cited domains, then calculate mention rate and SOV per prompt and platform.
+- **Output:** a CSV plus one bar chart per metric, with run counts shown ("4 of 5 runs").
+- **Extra:** save each month's results with a date column, and chart the trend.
+
+### 2. On-page audit script
+- **Input:** a list of URLs (from a sitemap or a crawl export) that you have permission to check.
+- **Steps:** fetch politely with `requests` (User-Agent, timeout, delay, robots.txt), record the status code and final URL, then run `audit_page()` from Module 6: title and length, meta description, H1 count, canonical, schema types.
+- **Output:** a CSV with one row per URL and True/False issue columns, sorted by the number of issues.
+- **Extra:** compare the canonical with the final URL, and flag pages that redirect.
+
+### 3. Search Console quick-wins report
+- **Input:** 28 days of query + page data from the Search Console API (Module 7).
+- **Steps:** find striking-distance queries (positions 4–15) and high-impression, low-CTR pages. Add intent with `classify_intent()`, and merge Ahrefs volume and KD.
+- **Output:** a prioritised CSV and a one-paragraph summary that states the date range and how much of total clicks the query rows cover.
+
+@@lesson Putting your projects on GitHub
+@@text
+GitHub is a website that stores code and its full history. A small portfolio of SEO scripts there shows clients and employers what you can do.
+
+- **Never commit secrets.** No API keys, no service-account JSON, no `.env` files. Add them to a file called `.gitignore` so Git ignores them. Remember that Git keeps old versions: if a key was ever committed, revoke it.
+- **Never commit client data.** Use made-up sample data, like the Sweat & Co data in this course, so the script can be tried safely. Keep client work in **private** repositories.
+- **Write a short README.md:** what the script does, what input it needs (with column names), how to run it, and an example of the output.
+- **Small, clear commits:** "Add CTR filter" is better than "update".
+- **Colab notebooks can be saved straight to GitHub:** File → Save a copy in GitHub.
+- Start with GitHub's own beginner guide: [Hello World](https://docs.github.com/en/get-started/start-your-journey/hello-world).
+
+@@lesson Free resources
+@@text
+- [Google Colab](https://colab.research.google.com/): free Python notebooks in your browser. Use it for everything that needs the internet or API keys.
+- [Python for Everybody (py4e.com)](https://www.py4e.com/): a free, gentle beginner course with videos. Great if you want more practice with the basics.
+- [10 minutes to pandas](https://pandas.pydata.org/docs/user_guide/10min.html): the official short tour of pandas.
+- [JC Chouinard: Python for SEO](https://www.jcchouinard.com/python-for-seo/): many practical SEO tutorials, including the Search Console API.
+- [Search Console API: searchanalytics.query](https://developers.google.com/webmaster-tools/v1/searchanalytics/query): the official reference for every request field.
+- [Beautiful Soup documentation](https://www.crummy.com/software/BeautifulSoup/bs4/doc/): every way to find tags in HTML.
+- [Requests quickstart](https://requests.readthedocs.io/en/latest/user/quickstart/): fetching pages and reading responses.
+- [Google: how HTTP status codes affect Search](https://developers.google.com/search/docs/crawling-indexing/http-network-errors): Google's own explanation of 3xx, 4xx and 5xx.
+- [Claude API documentation](https://platform.claude.com/docs/en/get-started): getting started with the Anthropic API used in Module 8.
+- [The Python tutorial](https://docs.python.org/3/tutorial/): the official tutorial, for when you want to go deeper.

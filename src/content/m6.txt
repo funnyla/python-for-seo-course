@@ -1,0 +1,788 @@
+@id module-6
+@num 6
+@title Module 6: Talking to websites
+@short Talking to websites
+@path module-6 › websites
+@time Week 7
+@desc HTTP status codes in plain words, fetching pages politely with requests, reading HTML with BeautifulSoup, and a mini on-page audit of titles, meta descriptions, H1s, canonicals and schema.
+@goal Pull SEO elements out of HTML with code, and turn a set of pages into an audit table.
+
+@@setup
+import json
+import pandas as pd
+from bs4 import BeautifulSoup
+
+pd.set_option("display.max_columns", 20)
+pd.set_option("display.width", 120)
+pd.set_option("display.max_colwidth", 60)
+
+HTML = """<!doctype html>
+<html lang="en-SG">
+<head>
+  <meta charset="utf-8">
+  <title>Yoga Mats Singapore | Non-Slip &amp; Eco-Friendly | Sweat &amp; Co</title>
+  <meta name="description" content="Shop non-slip, eco-friendly yoga mats in Singapore. 4mm to 8mm thickness, free delivery over S$80 and 30-day returns.">
+  <link rel="canonical" href="https://www.sweatandco.sg/collections/yoga-mats">
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "CollectionPage", "name": "Yoga Mats", "url": "https://www.sweatandco.sg/collections/yoga-mats"}
+  </script>
+</head>
+<body>
+  <header><a href="/">Sweat &amp; Co</a></header>
+  <main>
+    <h1>Yoga Mats</h1>
+    <p>Non-slip mats for home workouts, from studio-grade natural rubber to light travel mats.</p>
+    <h2>Best sellers</h2>
+    <h2>How thick should a yoga mat be?</h2>
+  </main>
+</body>
+</html>"""
+
+PRODUCT_HTML = """<!doctype html>
+<html lang="en-SG">
+<head>
+  <meta charset="utf-8">
+  <title>Adjustable Dumbbells 24kg | Free Delivery in Singapore | Sweat &amp; Co</title>
+  <meta name="description" content="Replace 15 pairs of dumbbells with one compact set. Adjusts from 2.5kg to 24kg in seconds. Free delivery in Singapore.">
+  <link rel="canonical" href="https://www.sweatandco.sg/products/adjustable-dumbbells-24kg">
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Product", "name": "Adjustable Dumbbells 24kg",
+   "brand": {"@type": "Brand", "name": "Sweat & Co"},
+   "offers": {"@type": "Offer", "price": "349.00", "priceCurrency": "SGD", "availability": "https://schema.org/InStock"}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.sweatandco.sg/"},
+    {"@type": "ListItem", "position": 2, "name": "Dumbbells", "item": "https://www.sweatandco.sg/collections/dumbbells"}]}
+  </script>
+</head>
+<body>
+  <main>
+    <h1>Adjustable Dumbbells 24kg</h1>
+    <p>One set, fifteen weights. Built for HDB flats and small spaces.</p>
+  </main>
+</body>
+</html>"""
+
+BLOG_HTML = """<!doctype html>
+<html lang="en-SG">
+<head>
+  <meta charset="utf-8">
+  <title>HDB Home Gym Ideas: 12 Space-Saving Setups | Sweat &amp; Co</title>
+  <link rel="canonical" href="https://www.sweatandco.sg/blog/hdb-home-gym-ideas">
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "BlogPosting", "headline": "HDB Home Gym Ideas", "datePublished": "2026-03-04"}
+  </script>
+</head>
+<body>
+  <h1>Sweat &amp; Co Blog</h1>
+  <article>
+    <h1>HDB Home Gym Ideas: 12 Space-Saving Setups</h1>
+    <p>You don't need a spare room to train at home.</p>
+  </article>
+</body>
+</html>"""
+
+TREADMILL_HTML = """<!doctype html>
+<html lang="en-SG">
+<head>
+  <meta charset="utf-8">
+  <title>Foldable Treadmill T200 | Sweat &amp; Co</title>
+  <meta name="description" content="A quiet, foldable treadmill that fits under your bed. Free delivery and installation in Singapore.">
+  <link rel="canonical" href="https://www.sweatandco.sg/products/foldable-treadmill-t200">
+  <script type="application/ld+json">
+  [{"@context": "https://schema.org", "@type": "Product", "name": "Foldable Treadmill T200",
+    "offers": {"@type": "Offer", "price": "899.00", "priceCurrency": "SGD"}},
+   {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": []}]
+  </script>
+</head>
+<body>
+  <h1>Foldable Treadmill T200 (Black)</h1>
+</body>
+</html>"""
+
+COLLECTION_HTML = """<!doctype html>
+<html lang="en-SG">
+<head>
+  <meta charset="utf-8">
+  <title>Treadmills</title>
+  <meta name="description" content="Browse our full range of treadmills for home use in Singapore, including foldable treadmills, walking pads, under-desk treadmills and commercial-grade machines, with free delivery, free installation and 12-month warranty.">
+</head>
+<body>
+  <div class="hero">Treadmills for every home</div>
+</body>
+</html>"""
+
+PAGES = {
+    "https://www.sweatandco.sg/collections/yoga-mats": HTML,
+    "https://www.sweatandco.sg/products/adjustable-dumbbells-24kg": PRODUCT_HTML,
+    "https://www.sweatandco.sg/blog/hdb-home-gym-ideas": BLOG_HTML,
+    "https://www.sweatandco.sg/products/foldable-treadmill-t200?colour=black": TREADMILL_HTML,
+    "https://www.sweatandco.sg/collections/treadmills": COLLECTION_HTML,
+}
+
+
+def audit_page(url, html):
+    soup = BeautifulSoup(html, "html.parser")
+    title_tag = soup.find("title")
+    title = title_tag.get_text(strip=True) if title_tag else ""
+    meta = soup.find("meta", attrs={"name": "description"})
+    canonical = soup.find("link", rel="canonical")
+    types = []
+    for script in soup.find_all("script", type="application/ld+json"):
+        data = json.loads(script.string)
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            types.append(str(item.get("@type", "?")))
+    return {
+        "url": url,
+        "title": title,
+        "title_length": len(title),
+        "meta_description": meta.get("content", "") if meta else "",
+        "h1_count": len(soup.find_all("h1")),
+        "canonical": canonical.get("href", "") if canonical else "",
+        "schema_types": ", ".join(types),
+    }
+
+
+audit = pd.DataFrame([audit_page(u, h) for u, h in PAGES.items()])
+
+@@lesson How websites answer: HTTP status codes
+@@text
+When a browser or Googlebot asks a server for a URL, the server answers with a **status code**: a three-digit number that says what happened. You see these in Screaming Frog, in Search Console's page indexing report, and in every crawl script.
+
+| Code | Name | What it means for SEO |
+|---|---|---|
+| **200** | OK | The page works. This is what you want for pages you want indexed. |
+| **301** | Moved permanently | A permanent redirect. Google moves its signals to the new URL over time. Update internal links so they point straight to the new URL. |
+| **302** | Found (temporary redirect) | "Moved for now." Google may keep the old URL in its index for longer. If the move is permanent, use 301. |
+| **404** | Not found | The page doesn't exist. Fine for pages that never existed. A problem when good pages or backlinked URLs return it. |
+| **410** | Gone | Removed on purpose. Google treats 404 and 410 almost the same: both drop out of the index over time. |
+| **429** | Too many requests | You are crawling too fast. Slow down. |
+| **5xx** | Server error (500, 502, 503...) | The server failed. If errors last, Google crawls less and pages can drop out of the index. 503 means "temporarily unavailable", the right code for planned maintenance. |
+
+The first digit tells you the family: **2** = success, **3** = redirect, **4** = problem with the request (often a missing page), **5** = problem on the server.
+
+@@example A crawl result as a list of pairs
+crawl = [
+    ("https://www.sweatandco.sg/", 200),
+    ("https://www.sweatandco.sg/collections/yoga-mat", 301),
+    ("https://www.sweatandco.sg/sale/black-friday-2025", 410),
+    ("https://www.sweatandco.sg/products/old-spin-bike", 404),
+    ("https://www.sweatandco.sg/cart?promo=FIT10", 302),
+    ("https://www.sweatandco.sg/collections/treadmills", 503),
+]
+
+for url, status in crawl:
+    family = status // 100        # // divides and drops the decimals: 404 // 100 = 4
+    print(status, family, url)
+
+@@exercise status_label(code)
+Write `status_label(code)` that returns:
+
+- `"OK"` for 200–299
+- `"Redirect"` for 300–399
+- `"Client error"` for 400–499
+- `"Server error"` for 500–599
+- `"Unknown"` for anything else
+
+@@starter
+def status_label(code):
+    return "Unknown"
+
+for code in [200, 301, 302, 404, 410, 503, 999]:
+    print(code, status_label(code))
+
+@@hint
+You can check a range in one go: `if 200 <= code <= 299:`. Or use the first digit: `code // 100 == 2`.
+
+@@solution
+def status_label(code):
+    if 200 <= code <= 299:
+        return "OK"
+    elif 300 <= code <= 399:
+        return "Redirect"
+    elif 400 <= code <= 499:
+        return "Client error"
+    elif 500 <= code <= 599:
+        return "Server error"
+    else:
+        return "Unknown"
+
+for code in [200, 301, 302, 404, 410, 503, 999]:
+    print(code, status_label(code))
+
+@@check
+cases = {200: "OK", 204: "OK", 301: "Redirect", 302: "Redirect", 308: "Redirect", 404: "Client error",
+         410: "Client error", 429: "Client error", 500: "Server error", 503: "Server error", 99: "Unknown", 999: "Unknown"}
+for code, want in cases.items():
+    got = status_label(code)
+    assert got == want, f"status_label({code}) returned {got!r}, expected {want!r}."
+
+@@exercise Broken URLs
+From the crawl list, build `broken`: a list of the URLs that returned **404 or 410**.
+
+@@starter
+crawl = [
+    ("https://www.sweatandco.sg/", 200),
+    ("https://www.sweatandco.sg/collections/yoga-mat", 301),
+    ("https://www.sweatandco.sg/sale/black-friday-2025", 410),
+    ("https://www.sweatandco.sg/products/old-spin-bike", 404),
+    ("https://www.sweatandco.sg/cart?promo=FIT10", 302),
+    ("https://www.sweatandco.sg/blog/old-post", 404),
+]
+
+broken = []
+# loop through crawl here
+
+print(broken)
+
+@@hint
+```
+for url, status in crawl:
+    if status == 404 or status == 410:
+        broken.append(url)
+```
+`if status in [404, 410]:` also works.
+
+@@solution
+crawl = [
+    ("https://www.sweatandco.sg/", 200),
+    ("https://www.sweatandco.sg/collections/yoga-mat", 301),
+    ("https://www.sweatandco.sg/sale/black-friday-2025", 410),
+    ("https://www.sweatandco.sg/products/old-spin-bike", 404),
+    ("https://www.sweatandco.sg/cart?promo=FIT10", 302),
+    ("https://www.sweatandco.sg/blog/old-post", 404),
+]
+
+broken = []
+for url, status in crawl:
+    if status in [404, 410]:
+        broken.append(url)
+
+print(broken)
+
+@@check
+assert broken == ["https://www.sweatandco.sg/sale/black-friday-2025", "https://www.sweatandco.sg/products/old-spin-bike", "https://www.sweatandco.sg/blog/old-post"], f"broken should have the 3 URLs with 404 or 410, in crawl order. You have {broken}"
+
+@@tip
+When AI writes a status checker, ask: **"Does it follow redirects, and does it report the first status code or the final one?"** By default, Python's `requests` follows redirects, so a 301 to a 404 can show up as just "404", or as "200" when it ends on a working page. For SEO you usually want both: the first code and the final URL.
+
+@@quiz
+A page was deleted on purpose and has no replacement. Which status code says that most clearly?
+@@option
+200
+@@option
+302
+@@option*
+410
+@@option
+503
+@@explain
+410 means "gone on purpose". 404 also works, and Google treats them almost the same. 200 would say the page works, 302 is a temporary redirect, and 503 means the server is temporarily down.
+
+@@lesson Fetching pages politely (requests in Colab)
+@@text
+In real life you get a page's HTML with the **requests** library. This part can't run in this course: browsers don't let one web page download other websites' HTML (a safety rule). So copy these cells into Google Colab.
+
+**Be polite when you crawl.** You are using someone else's server:
+
+- **Identify yourself** with a clear User-Agent, so the site owner knows who you are.
+- **Wait between requests** with `time.sleep()`, 1–2 seconds or more for small sites.
+- **Respect robots.txt**, and only crawl what you need.
+- **Stop when you see 429 or many 5xx errors.** You may be overloading the site.
+- Only crawl sites you own or have permission to audit. Read the site's terms first.
+
+`example.com` below is a domain reserved for examples. Swap in a site you work on.
+
+@@colab Fetch one page
+@@code
+import requests
+
+url = "https://www.example.com/"
+headers = {"User-Agent": "MyAgency-SEO-Audit/1.0 (+https://www.example.com/contact)"}   # change to your own details
+
+response = requests.get(url, headers=headers, timeout=10)
+
+print(response.status_code)                    # 200, 404, 503...
+print(response.url)                            # the final URL, after any redirects
+print(response.history)                        # redirects on the way, e.g. [<Response [301]>]
+print(response.headers.get("content-type"))
+html = response.text
+print(html[:300])
+
+@@colab See a redirect without following it
+@@code
+import requests
+
+url = "http://example.com/"        # http:// often redirects to https://
+r = requests.get(url, allow_redirects=False, timeout=10,
+                 headers={"User-Agent": "MyAgency-SEO-Audit/1.0"})
+print(r.status_code)               # e.g. 301
+print(r.headers.get("Location"))   # where the redirect points
+
+@@text
+### Reading robots.txt with Python
+Python has a robots.txt reader built in, `urllib.robotparser`. This one **does** run here, because you give it the robots.txt text yourself.
+
+@@example Can we crawl these URLs?
+from urllib.robotparser import RobotFileParser
+
+robots_txt = """User-agent: *
+Disallow: /checkout/
+Disallow: /cart
+Allow: /
+
+Sitemap: https://www.sweatandco.sg/sitemap.xml"""
+
+rp = RobotFileParser()
+rp.parse(robots_txt.splitlines())
+
+for path in ["/collections/yoga-mats", "/cart", "/checkout/step-1"]:
+    url = "https://www.sweatandco.sg" + path
+    print(rp.can_fetch("MyAgency-SEO-Audit", url), url)
+
+@@exercise A competitor's robots.txt (and AI crawlers)
+Here is GymPro's robots.txt. Build `allowed`, a list of the URLs that the user-agent `"MyAgency-SEO-Audit"` **may** crawl. Then store in `gptbot_allowed` whether `"GPTBot"` (OpenAI's crawler) may fetch GymPro's homepage.
+
+@@starter
+from urllib.robotparser import RobotFileParser
+
+robots_txt = """User-agent: *
+Disallow: /account/
+Disallow: /search
+Disallow: /checkout/
+
+User-agent: GPTBot
+Disallow: /"""
+
+urls = [
+    "https://www.gympro.com.sg/",
+    "https://www.gympro.com.sg/treadmills",
+    "https://www.gympro.com.sg/search?q=yoga+mat",
+    "https://www.gympro.com.sg/account/orders",
+    "https://www.gympro.com.sg/blog/home-gym-guide",
+]
+
+rp = RobotFileParser()
+rp.parse(robots_txt.splitlines())
+
+allowed = []
+gptbot_allowed = None
+
+print(allowed)
+print("GPTBot allowed:", gptbot_allowed)
+
+@@hint
+Loop over `urls` and append the ones where `rp.can_fetch("MyAgency-SEO-Audit", url)` is True. For GPTBot: `rp.can_fetch("GPTBot", "https://www.gympro.com.sg/")`.
+
+@@solution
+from urllib.robotparser import RobotFileParser
+
+robots_txt = """User-agent: *
+Disallow: /account/
+Disallow: /search
+Disallow: /checkout/
+
+User-agent: GPTBot
+Disallow: /"""
+
+urls = [
+    "https://www.gympro.com.sg/",
+    "https://www.gympro.com.sg/treadmills",
+    "https://www.gympro.com.sg/search?q=yoga+mat",
+    "https://www.gympro.com.sg/account/orders",
+    "https://www.gympro.com.sg/blog/home-gym-guide",
+]
+
+rp = RobotFileParser()
+rp.parse(robots_txt.splitlines())
+
+allowed = []
+for url in urls:
+    if rp.can_fetch("MyAgency-SEO-Audit", url):
+        allowed.append(url)
+gptbot_allowed = rp.can_fetch("GPTBot", "https://www.gympro.com.sg/")
+
+print(allowed)
+print("GPTBot allowed:", gptbot_allowed)
+
+@@check
+assert allowed == ["https://www.gympro.com.sg/", "https://www.gympro.com.sg/treadmills", "https://www.gympro.com.sg/blog/home-gym-guide"], f"allowed should have the 3 URLs not blocked for '*'. You have {allowed}"
+assert gptbot_allowed is False, "gptbot_allowed should be False: GymPro blocks GPTBot from the whole site."
+
+@@colab A polite mini crawl
+@@code
+import time
+import requests
+import pandas as pd
+from urllib.robotparser import RobotFileParser
+
+SITE = "https://www.example.com"
+USER_AGENT = "MyAgency-SEO-Audit/1.0 (+https://www.example.com/contact)"
+urls = [SITE + "/", SITE + "/about", SITE + "/this-page-does-not-exist"]
+
+rp = RobotFileParser(SITE + "/robots.txt")
+rp.read()
+
+rows = []
+for url in urls:
+    if not rp.can_fetch(USER_AGENT, url):
+        rows.append({"url": url, "status": "blocked by robots.txt"})
+        continue
+    try:
+        r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=10)
+        rows.append({"url": url, "status": r.status_code, "final_url": r.url, "redirects": len(r.history)})
+    except requests.RequestException as e:
+        rows.append({"url": url, "status": f"error: {e}"})
+    time.sleep(2)   # be polite: wait between requests
+
+results = pd.DataFrame(rows)
+results
+
+@@tip
+Check AI crawlers for three things: a **timeout** on every request (without one, a script can hang forever), a **delay** between requests, and **error handling** that records failures instead of stopping or skipping silently. One more detail: Python's `robotparser` uses simple prefix matching and doesn't understand Google's `*` and `$` wildcards. For Google-accurate checks, ask for a library that supports them, such as `protego`.
+
+@@quiz
+Why add `time.sleep(2)` inside a crawl loop?
+@@option
+Python needs time to read the HTML
+@@option*
+To wait between requests so you don't overload the website
+@@option
+Because requests can only run once every 2 seconds
+@@option
+To make the results more accurate
+@@explain
+It pauses for 2 seconds between pages. That keeps your crawler polite, lowers the chance of being blocked (429 errors), and is kinder to small servers.
+
+@@lesson Reading HTML with BeautifulSoup
+@@text
+HTML is text with **tags** inside angle brackets: `<title>...</title>`, `<h1>...</h1>`, `<meta name="description" content="...">`. **BeautifulSoup** reads HTML so you can find tags without messy text searching.
+
+The HTML of the Sweat & Co yoga mats page is loaded as `HTML`. Have a look first:
+
+@@example The raw HTML
+print(HTML[:700])
+
+@@text
+The main tools:
+
+| Code | Finds |
+|---|---|
+| `soup.find("title")` | the first `<title>` tag, or `None` if there isn't one |
+| `soup.find_all("h1")` | a **list** of every `<h1>` tag |
+| `soup.find("meta", attrs={"name": "description"})` | the meta description tag |
+| `tag.get_text(strip=True)` | the text inside a tag, without extra spaces |
+| `tag["content"]` or `tag.get("content")` | an attribute's value |
+
+`"html.parser"` is Python's built-in HTML reader. It needs no extra install.
+
+@@example Title, meta description and H1
+from bs4 import BeautifulSoup
+
+soup = BeautifulSoup(HTML, "html.parser")
+
+title = soup.find("title").get_text(strip=True)
+print("Title:", title, f"({len(title)} chars)")
+
+meta = soup.find("meta", attrs={"name": "description"})
+print("Meta:", meta["content"] if meta else "MISSING")
+
+h1s = soup.find_all("h1")
+print(len(h1s), "H1:", [h.get_text(strip=True) for h in h1s])
+
+@@example Canonical and JSON-LD @type
+import json
+from bs4 import BeautifulSoup
+
+soup = BeautifulSoup(HTML, "html.parser")   # each cell runs on its own, so make soup again
+
+canonical = soup.find("link", rel="canonical")
+print("Canonical:", canonical["href"] if canonical else "MISSING")
+
+for script in soup.find_all("script", type="application/ld+json"):
+    data = json.loads(script.string)     # JSON-LD is JSON, so json.loads reads it
+    print("Schema @type:", data["@type"])
+
+@@exercise Audit the product page
+The dumbbell product page is loaded as `PRODUCT_HTML`. Extract:
+
+- `title` (the text) and `title_length`
+- `meta_description` (the content text)
+- `h1_count`
+- `canonical` (the href)
+- `schema_types`: a **list** of the `@type` of each JSON-LD script, in page order
+
+@@starter
+from bs4 import BeautifulSoup
+import json
+
+soup = BeautifulSoup(PRODUCT_HTML, "html.parser")
+
+title = None
+title_length = None
+meta_description = None
+h1_count = None
+canonical = None
+schema_types = []
+
+print(title, title_length)
+print(meta_description)
+print(h1_count, canonical, schema_types)
+
+@@hint
+Use the patterns from the two examples above. For `schema_types`, loop over `soup.find_all("script", type="application/ld+json")`, `json.loads(script.string)`, and append `data["@type"]`.
+
+@@solution
+from bs4 import BeautifulSoup
+import json
+
+soup = BeautifulSoup(PRODUCT_HTML, "html.parser")
+
+title = soup.find("title").get_text(strip=True)
+title_length = len(title)
+meta_description = soup.find("meta", attrs={"name": "description"})["content"]
+h1_count = len(soup.find_all("h1"))
+canonical = soup.find("link", rel="canonical")["href"]
+schema_types = []
+for script in soup.find_all("script", type="application/ld+json"):
+    data = json.loads(script.string)
+    schema_types.append(data["@type"])
+
+print(title, title_length)
+print(meta_description)
+print(h1_count, canonical, schema_types)
+
+@@check
+assert title == "Adjustable Dumbbells 24kg | Free Delivery in Singapore | Sweat & Co", f"title isn't right yet: {title!r}"
+assert title_length == 67, f"title_length should be 67, but it is {title_length!r}."
+assert meta_description == "Replace 15 pairs of dumbbells with one compact set. Adjusts from 2.5kg to 24kg in seconds. Free delivery in Singapore.", "meta_description should be the text in the content attribute."
+assert h1_count == 1, f"h1_count should be 1, but it is {h1_count!r}."
+assert canonical == "https://www.sweatandco.sg/products/adjustable-dumbbells-24kg", f"canonical should be the href value, but it is {canonical!r}."
+assert schema_types == ["Product", "BreadcrumbList"], f"schema_types should be ['Product', 'BreadcrumbList'], but it is {schema_types!r}."
+
+@@exercise Read the price from Product schema
+JSON-LD is nested: dictionaries inside dictionaries. From the **Product** JSON-LD on `PRODUCT_HTML`, store the price as a **number** in `price` (it's text in the schema) and the currency in `currency`.
+
+@@starter
+from bs4 import BeautifulSoup
+import json
+
+soup = BeautifulSoup(PRODUCT_HTML, "html.parser")
+script = soup.find("script", type="application/ld+json")   # the first one is the Product
+data = json.loads(script.string)
+print(data)
+
+price = None
+currency = None
+
+print(price, currency)
+
+@@hint
+The offer is inside `data["offers"]`. So the price is `data["offers"]["price"]`. Wrap it in `float()` to turn `"349.00"` into a number.
+
+@@solution
+from bs4 import BeautifulSoup
+import json
+
+soup = BeautifulSoup(PRODUCT_HTML, "html.parser")
+script = soup.find("script", type="application/ld+json")
+data = json.loads(script.string)
+print(data)
+
+price = float(data["offers"]["price"])
+currency = data["offers"]["priceCurrency"]
+
+print(price, currency)
+
+@@check
+assert not isinstance(price, str), "price should be a number. Use float() on the text."
+assert price == 349.0, f"price should be 349.0, but it is {price!r}."
+assert currency == "SGD", f"currency should be 'SGD', but it is {currency!r}."
+
+@@tip
+AI often writes `BeautifulSoup(html, "lxml")`. `lxml` is faster but needs an extra install, so the script can fail on another computer. `"html.parser"` always works. Also ask: **"What if the tag is missing?"** `soup.find()` returns `None` when it finds nothing, and `None["content"]` crashes. You'll fix exactly that bug in the next lesson.
+
+@@quiz
+What does `soup.find("meta", attrs={"name": "description"})` give you when the page has no meta description?
+@@option
+An empty string `""`
+@@option*
+`None`
+@@option
+An error straight away
+@@option
+The page title instead
+@@explain
+`find()` returns `None` when nothing matches. The error only comes later, if your code then tries `None["content"]` or `None.get_text()`. Always check for `None` first.
+
+@@lesson A mini on-page audit
+@@text
+Now put it all together. A function audits **one** page and returns a dictionary. A loop runs it on **every** page, and pandas turns the list of dictionaries into a table.
+
+Five sample pages are loaded in a dictionary called `PAGES` (URL → HTML). Some of them have problems on purpose.
+
+@@example audit_page() on every page
+from bs4 import BeautifulSoup
+import json
+import pandas as pd
+
+def audit_page(url, html):
+    soup = BeautifulSoup(html, "html.parser")
+    title_tag = soup.find("title")
+    title = title_tag.get_text(strip=True) if title_tag else ""
+    meta = soup.find("meta", attrs={"name": "description"})
+    canonical = soup.find("link", rel="canonical")
+    types = []
+    for script in soup.find_all("script", type="application/ld+json"):
+        data = json.loads(script.string)
+        items = data if isinstance(data, list) else [data]   # JSON-LD can be one object or a list
+        for item in items:
+            types.append(str(item.get("@type", "?")))
+    return {
+        "url": url,
+        "title": title,
+        "title_length": len(title),
+        "meta_description": meta.get("content", "") if meta else "",
+        "h1_count": len(soup.find_all("h1")),
+        "canonical": canonical.get("href", "") if canonical else "",
+        "schema_types": ", ".join(types),
+    }
+
+rows = []
+for url, html in PAGES.items():
+    rows.append(audit_page(url, html))
+
+audit = pd.DataFrame(rows)
+audit[["url", "title_length", "h1_count", "schema_types"]]
+
+@@text
+Look at the pattern `x if condition else y`. It's a one-line if/else. `title_tag.get_text(strip=True) if title_tag else ""` means "use the title text if a title tag exists, otherwise use empty text". This is how the audit avoids crashing on missing tags.
+
+@@exercise Flag the issues
+`audit_page()` and the `audit` table from the example are loaded for you. Add four **True/False** columns:
+
+- `title_too_long`: title longer than 60 characters
+- `missing_meta`: meta description is empty
+- `h1_problem`: not exactly one H1
+- `no_canonical`: canonical is empty
+
+Then add `issues`, the number of True values in those four columns for each page.
+
+@@starter
+audit["title_too_long"] = audit["title_length"] > 60
+# add the other three columns here
+
+audit["issues"] = 0   # change this
+
+audit[["url", "title_too_long", "missing_meta", "h1_problem", "no_canonical", "issues"]]
+
+@@hint
+`audit["missing_meta"] = audit["meta_description"] == ""`, `audit["h1_problem"] = audit["h1_count"] != 1`, and so on. For `issues`, add the four columns together: True counts as 1 and False as 0. You can also use `audit[[...]].sum(axis=1)`.
+
+@@solution
+audit["title_too_long"] = audit["title_length"] > 60
+audit["missing_meta"] = audit["meta_description"] == ""
+audit["h1_problem"] = audit["h1_count"] != 1
+audit["no_canonical"] = audit["canonical"] == ""
+
+audit["issues"] = audit[["title_too_long", "missing_meta", "h1_problem", "no_canonical"]].sum(axis=1)
+
+audit[["url", "title_too_long", "missing_meta", "h1_problem", "no_canonical", "issues"]]
+
+@@check
+for col in ["title_too_long", "missing_meta", "h1_problem", "no_canonical", "issues"]:
+    assert col in audit.columns, f"Add the column {col!r}."
+assert audit["title_too_long"].tolist() == [False, True, False, False, False], "title_too_long isn't right. Use title_length > 60."
+assert audit["missing_meta"].tolist() == [False, False, True, False, False], "missing_meta isn't right. Compare meta_description with an empty string."
+assert audit["h1_problem"].tolist() == [False, False, True, False, True], "h1_problem isn't right. It should be True when h1_count is not 1."
+assert audit["no_canonical"].tolist() == [False, False, False, False, True], "no_canonical isn't right. Compare canonical with an empty string."
+assert audit["issues"].tolist() == [0, 1, 2, 0, 2], f"issues should count the True values per page: [0, 1, 2, 0, 2]. You have {audit['issues'].tolist()}"
+
+@@text
+Notice the treadmill URL ends with `?colour=black`, but its canonical points to the clean URL. That is **correct**: parameter URLs should canonicalise to the main version. So "canonical ≠ URL" is not always an error. It is something to review. Good audits label these as "check" instead of "error".
+
+@@bug Meta descriptions for every page
+The AI wrote this to collect every page's meta description. It crashes on one page. Fix `get_meta_description` so it returns an **empty string** when a page has no meta description.
+
+@@code
+from bs4 import BeautifulSoup
+
+def get_meta_description(html):
+    soup = BeautifulSoup(html, "html.parser")
+    return soup.find("meta", attrs={"name": "description"})["content"]
+
+results = {}
+for url, html in PAGES.items():
+    results[url] = get_meta_description(html)
+
+for url, meta in results.items():
+    print(len(meta), url)
+
+@@hint
+The error says `'NoneType' object is not subscriptable`. Which page has no meta description? Save the result of `soup.find(...)` in a variable and check `if tag is None:` before using `["content"]`.
+
+@@solution
+from bs4 import BeautifulSoup
+
+def get_meta_description(html):
+    soup = BeautifulSoup(html, "html.parser")
+    tag = soup.find("meta", attrs={"name": "description"})
+    if tag is None:
+        return ""
+    return tag.get("content", "")
+
+results = {}
+for url, html in PAGES.items():
+    results[url] = get_meta_description(html)
+
+for url, meta in results.items():
+    print(len(meta), url)
+
+@@explain
+The blog page has no meta description, so `soup.find(...)` returned `None`, and `None["content"]` crashed the whole loop. The AI assumed every page has every tag. Real sites never do. Check for `None` and return a clear empty value, then flag it in your audit.
+
+@@check
+assert get_meta_description(BLOG_HTML) == "", "get_meta_description should return '' for the blog page, which has no meta description."
+assert get_meta_description(HTML).startswith("Shop non-slip"), "get_meta_description should still return the real meta description when it exists."
+assert len(results) == 5, "results should have all 5 pages."
+
+@@colab Audit live pages
+Once you've fetched HTML with `requests` (lesson 6.2), you can feed it straight into the same `audit_page()` function. Paste the `audit_page` definition from the example above into Colab first.
+
+@@code
+import time
+import requests
+import pandas as pd
+
+USER_AGENT = "MyAgency-SEO-Audit/1.0 (+https://www.example.com/contact)"
+urls = ["https://www.example.com/"]          # pages you own or have permission to audit
+
+rows = []
+for url in urls:
+    r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=10)
+    row = audit_page(r.url, r.text)          # audit_page from the example above
+    row["status"] = r.status_code
+    rows.append(row)
+    time.sleep(2)
+
+audit = pd.DataFrame(rows)
+audit.to_csv("onpage_audit.csv", index=False)
+audit
+
+@@tip
+Test AI audit scripts on **messy pages first**: no title, two H1s, JSON-LD that's a list, JSON-LD with `@graph`, or broken JSON. The sample pages in this lesson are a good test set. Ask: "Which pages did this script skip or fail on, and why?" A script that silently drops failed pages makes the site look healthier than it is.
+
+@@quiz
+`types = []`, then this runs: `items = data if isinstance(data, list) else [data]`. Why?
+@@option
+To make the code faster
+@@option*
+JSON-LD can be one object or a list of objects, and this handles both the same way
+@@option
+To remove duplicate schema types
+@@option
+Because `json.loads` always returns a list
+@@explain
+Some sites put one schema object in each script, others put a list of objects in one script. Turning a single object into a one-item list means the same loop works for both.

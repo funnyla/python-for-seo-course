@@ -1,0 +1,742 @@
+@id module-5
+@num 5
+@title Module 5: pandas, your spreadsheet superpower
+@short pandas
+@path module-5 › pandas
+@time Weeks 5–6
+@desc Read a Search Console export, filter it with combined conditions, find high-impression pages with a low CTR, add an intent column, summarise with groupby, merge Ahrefs data and export the result.
+@goal Do in a few lines of pandas what takes an afternoon in Excel, and know how to check the result.
+
+@@setup
+import io
+import pandas as pd
+
+pd.set_option("display.max_columns", 20)
+pd.set_option("display.width", 120)
+
+GSC_CSV = """query,page,clicks,impressions,ctr,position
+sweat and co,https://www.sweatandco.sg/,820,2100,0.3905,1.1
+sweat & co singapore,https://www.sweatandco.sg/,410,1250,0.328,1.2
+sweat and co promo code,https://www.sweatandco.sg/,66,480,0.1375,1.6
+fithub vs sweat and co,https://www.sweatandco.sg/,11,260,0.0423,3.9
+adjustable dumbbells singapore,https://www.sweatandco.sg/products/adjustable-dumbbells-24kg,260,9800,0.0265,4.3
+adjustable dumbbells review,https://www.sweatandco.sg/products/adjustable-dumbbells-24kg,19,2400,0.0079,9.7
+dumbbells singapore,https://www.sweatandco.sg/collections/dumbbells,190,14200,0.0134,6.8
+buy dumbbells online singapore,https://www.sweatandco.sg/collections/dumbbells,74,2300,0.0322,5.1
+kettlebell singapore,https://www.sweatandco.sg/collections/dumbbells,52,3700,0.0141,7.7
+home gym equipment singapore,https://www.sweatandco.sg/collections/dumbbells,29,6100,0.0048,13.5
+yoga mat singapore,https://www.sweatandco.sg/collections/yoga-mats,310,12600,0.0246,3.9
+best yoga mat for beginners,https://www.sweatandco.sg/collections/yoga-mats,22,4100,0.0054,11.4
+yoga mat thickness guide,https://www.sweatandco.sg/collections/yoga-mats,6,1700,0.0035,21.3
+foldable treadmill singapore,https://www.sweatandco.sg/products/foldable-treadmill-t200,145,8900,0.0163,5.6
+treadmill for hdb,https://www.sweatandco.sg/products/foldable-treadmill-t200,61,1900,0.0321,3.4
+treadmill singapore,https://www.sweatandco.sg/collections/treadmills,98,18400,0.0053,9.2
+resistance bands singapore,https://www.sweatandco.sg/collections/resistance-bands,133,5200,0.0256,4.0
+how to use resistance bands,https://www.sweatandco.sg/blog/how-to-use-resistance-bands,88,7600,0.0116,7.3
+resistance band exercises,https://www.sweatandco.sg/blog/how-to-use-resistance-bands,41,6900,0.0059,12.6
+hdb home gym ideas,https://www.sweatandco.sg/blog/hdb-home-gym-ideas,156,3400,0.0459,2.8
+home gym singapore,https://www.sweatandco.sg/blog/hdb-home-gym-ideas,37,11300,0.0033,14.1
+home gym equipment singapore,https://www.sweatandco.sg/blog/hdb-home-gym-ideas,18,3900,0.0046,15.8
+what is the best home workout equipment,https://www.sweatandco.sg/blog/hdb-home-gym-ideas,9,2200,0.0041,18.7
+kettlebell workout for beginners,https://www.sweatandco.sg/blog/kettlebell-workout-for-beginners,64,5800,0.011,8.1
+spin bike singapore,https://www.sweatandco.sg/products/spin-bike-s1,47,4600,0.0102,8.9
+exercise bike for home,https://www.sweatandco.sg/products/spin-bike-s1,12,2900,0.0041,16.2
+pull up bar singapore,https://www.sweatandco.sg/collections/pull-up-bars,83,2600,0.0319,3.1
+pull up bar no screws,https://www.sweatandco.sg/collections/pull-up-bars,35,1500,0.0233,4.6
+rowing machine vs treadmill,https://www.sweatandco.sg/blog/rowing-machine-vs-treadmill,58,2700,0.0215,5.2
+dumbbell delivery singapore,https://www.sweatandco.sg/pages/delivery,14,640,0.0219,6.3"""
+
+AHREFS_CSV = """Keyword,Volume,KD
+treadmill singapore,2400,18
+resistance band exercises,2900,35
+yoga mat singapore,1900,12
+dumbbells singapore,1600,9
+home gym singapore,1300,15
+how to use resistance bands,1100,21
+sweat and co,1000,0
+adjustable dumbbells singapore,880,6
+kettlebell workout for beginners,880,28
+foldable treadmill singapore,720,4
+spin bike singapore,720,8
+home gym equipment singapore,590,11
+kettlebell singapore,590,5
+resistance bands singapore,480,3
+hdb home gym ideas,390,2
+pull up bar singapore,390,3
+exercise bike for home,320,24
+foam roller singapore,320,4
+rowing machine vs treadmill,260,14
+best yoga mat for beginners,210,19
+pull up bar no screws,170,1
+treadmill for hdb,140,0
+buy dumbbells online singapore,90,2
+yoga mat singapore,1900,12"""
+
+df = pd.read_csv(io.StringIO(GSC_CSV))
+
+BRAND_WORDS = ["sweat", "sweatandco"]
+INFO_WORDS = ["how", "what", "why", "guide", "ideas", "tips"]
+COMMERCIAL_WORDS = ["buy", "price", "best", "review", "singapore", "sale", "cheap", "delivery"]
+
+
+def classify_intent(keyword):
+    words = keyword.lower().split()
+    for w in BRAND_WORDS:
+        if w in words:
+            return "navigational"
+    for w in INFO_WORDS:
+        if w in words:
+            return "informational"
+    for w in COMMERCIAL_WORDS:
+        if w in words:
+            return "commercial"
+    return "unknown"
+
+@@lesson Meet pandas: your Search Console export as a table
+@@text
+**pandas** is the Python library for tables. If you know Excel or Google Sheets, you already understand the ideas:
+
+| Excel | pandas |
+|---|---|
+| a sheet (table) | a **DataFrame**, usually called `df` |
+| one column | a **Series**, e.g. `df["clicks"]` |
+| filter | `df[df["clicks"] > 100]` |
+| sort | `df.sort_values("clicks")` |
+| pivot table | `df.groupby("page")` |
+| VLOOKUP | `df.merge(other_table)` |
+
+On your computer or in Colab you read a file with `pd.read_csv("Queries.csv")`. In this course the data is stored as text, and `io.StringIO()` makes the text behave like a file. Here is a tiny example:
+
+@@example A tiny table from text
+import io
+import pandas as pd
+
+csv_text = """query,page,clicks,impressions,ctr,position
+yoga mat singapore,https://www.sweatandco.sg/collections/yoga-mats,310,12600,0.0246,3.9
+treadmill singapore,https://www.sweatandco.sg/collections/treadmills,98,18400,0.0053,9.2"""
+
+small = pd.read_csv(io.StringIO(csv_text))
+small
+
+@@text
+For the rest of this module, a 30-row Search Console export for Sweat & Co is **already loaded as `df`** before every cell runs. It is a fresh copy each time, so you can't break it. It has the same columns the Search Console API gives you: `query`, `page`, `clicks`, `impressions`, `ctr` (a fraction, so 0.0246 = 2.46%) and `position`.
+
+The first thing to do with any new data is to **look at it**: how big is it, what are the columns, and what do the first rows look like?
+
+@@example First look: shape, columns and head
+print(df.shape)              # (rows, columns)
+print(df.columns.tolist())   # the column names, exactly as pandas sees them
+df.head()                    # the first 5 rows
+
+@@example Types and a quick summary
+print(df.dtypes)    # int64 = whole numbers, float64 = decimals, object = text
+df.describe()       # count, mean, min, max... for each number column
+
+@@text
+To use one column, put its name in square brackets: `df["clicks"]`. Use **double** brackets to keep several columns: `df[["query", "clicks"]]`. A column has handy methods like `.sum()`, `.mean()`, `.max()` and `.nunique()` (the number of different values).
+
+@@example Working with columns
+print("Total clicks:", df["clicks"].sum())
+print("Total impressions:", df["impressions"].sum())
+print("Different pages:", df["page"].nunique())
+
+df[["query", "clicks", "position"]].head(3)
+
+@@text
+**Watch out:** the CSV you download from the Search Console **website** is different from the API data. Its columns are called `Top queries`, `Clicks`, `Impressions`, `CTR` and `Position`, and CTR is text like `"2.46%"`. Here's how to convert that:
+
+@@example Fixing a CTR column that is text
+ui_export = pd.DataFrame({"Top queries": ["yoga mat singapore", "treadmill singapore"],
+                          "CTR": ["2.46%", "0.53%"]})
+print(ui_export.dtypes)   # CTR is "object", which means text
+
+ui_export["ctr"] = ui_export["CTR"].str.rstrip("%").astype(float) / 100
+ui_export
+
+@@exercise Totals and overall CTR
+Using `df`, store:
+
+- `total_clicks` and `total_impressions`
+- `overall_ctr`: the CTR of the whole site, as a fraction
+- `n_queries`: how many **different** queries there are
+
+@@starter
+total_clicks = None
+total_impressions = None
+overall_ctr = None
+n_queries = None
+
+print(total_clicks, total_impressions, overall_ctr, n_queries)
+print(len(df), "rows")
+
+@@hint
+`df["clicks"].sum()` gives total clicks. For the overall CTR, divide total clicks by total impressions. **Don't** take the average of the `ctr` column. For `n_queries`, use `df["query"].nunique()`.
+
+@@solution
+total_clicks = df["clicks"].sum()
+total_impressions = df["impressions"].sum()
+overall_ctr = total_clicks / total_impressions
+n_queries = df["query"].nunique()
+
+print(total_clicks, total_impressions, overall_ctr, n_queries)
+print(len(df), "rows")
+
+@@check
+ref = pd.read_csv(io.StringIO(GSC_CSV))
+assert total_clicks == ref["clicks"].sum(), f"total_clicks should be {ref['clicks'].sum()}."
+assert total_impressions == ref["impressions"].sum(), f"total_impressions should be {ref['impressions'].sum()}."
+assert overall_ctr is not None, "Set overall_ctr."
+assert abs(overall_ctr - ref["ctr"].mean()) > 0.001, "That's the average of the ctr column, which gives small queries too much weight. Use total clicks / total impressions."
+assert abs(overall_ctr - ref["clicks"].sum() / ref["impressions"].sum()) < 1e-9, "overall_ctr should be total_clicks / total_impressions."
+assert n_queries == 29, f"n_queries should be 29: one query appears on two pages. You have {n_queries}."
+
+@@tip
+The first thing to ask of any AI-written pandas script: **"Print `df.shape` and `df.columns.tolist()` right after loading."** Most AI bugs with exports are about column names: `"CTR"` vs `"ctr"`, `"Top queries"` vs `"query"`, or a space at the end of a name. Also check CTR averages. The **mean of a CTR column** is not the site CTR, because it treats a query with 10 impressions the same as one with 10,000.
+
+@@quiz
+Which line gives the correct overall CTR for the whole export?
+@@option
+`df["ctr"].mean()`
+@@option*
+`df["clicks"].sum() / df["impressions"].sum()`
+@@option
+`df["ctr"].sum()`
+@@option
+`df["clicks"].mean() / 100`
+@@explain
+Overall CTR is total clicks divided by total impressions. Averaging the `ctr` column gives every row the same weight, even rows with tiny impressions, so the number is misleading.
+
+@@lesson Filtering rows with conditions
+@@text
+To filter, put a **condition** inside square brackets: `df[df["impressions"] > 5000]`.
+
+The condition itself is a column of `True` / `False` values, one for each row. pandas keeps the rows that are `True`.
+
+@@example What a condition looks like
+high_impressions = df["impressions"] > 5000
+print(high_impressions.head())     # True or False for each row
+
+df[high_impressions][["query", "impressions"]]
+
+@@text
+To combine conditions, pandas uses **symbols**, not words:
+
+| You mean | Write | Example |
+|---|---|---|
+| and | `&` | `(df["impressions"] > 5000) & (df["ctr"] < 0.02)` |
+| or | `\|` | `(df["position"] <= 3) \| (df["clicks"] > 300)` |
+| not | `~` | `~df["query"].str.contains("sweat")` |
+
+**Put brackets around each condition.** Without them, Python gets the order wrong and shows a confusing error.
+
+@@example Two conditions with &
+big_and_ranking = df[(df["impressions"] > 10000) & (df["position"] <= 10)]
+print(len(big_and_ranking), "rows")
+big_and_ranking[["query", "impressions", "position"]]
+
+@@example Text filters: contains, isin and not
+blog = df[df["page"].str.contains("/blog/")]
+print(len(blog), "rows are blog pages")
+
+branded = df["query"].str.contains("sweat")
+non_brand = df[~branded]                      # ~ means "not"
+print(len(non_brand), "rows are non-brand")
+
+products = ["https://www.sweatandco.sg/products/spin-bike-s1", "https://www.sweatandco.sg/products/foldable-treadmill-t200"]
+df[df["page"].isin(products)][["query", "page", "clicks"]]
+
+@@exercise Striking-distance keywords
+Find the rows with a position **from 4 to 15** (including both) **and** at least **2,000 impressions**. These are close to the top and worth improving. Store them in `striking`.
+
+@@starter
+striking = df   # change this to a filter
+
+print(len(striking), "rows")
+striking[["query", "impressions", "position"]]
+
+@@hint
+Three conditions joined with `&`, each in brackets:
+
+`df[(df["position"] >= 4) & (df["position"] <= 15) & (df["impressions"] >= 2000)]`
+
+@@solution
+striking = df[(df["position"] >= 4) & (df["position"] <= 15) & (df["impressions"] >= 2000)]
+
+print(len(striking), "rows")
+striking[["query", "impressions", "position"]]
+
+@@check
+ref = pd.read_csv(io.StringIO(GSC_CSV))
+want = ref[(ref["position"] >= 4) & (ref["position"] <= 15) & (ref["impressions"] >= 2000)]
+assert isinstance(striking, pd.DataFrame), "striking should be a DataFrame (a filtered df)."
+assert "query" in striking.columns, "Keep the query column in striking."
+assert len(striking) == len(want), f"Expected {len(want)} rows, but striking has {len(striking)}. Check >= and <= on both sides."
+assert sorted(striking["query"]) == sorted(want["query"]), "The right number of rows, but not the right ones."
+
+@@exercise High impressions, low CTR
+Find the rows with **at least 5,000 impressions** and a **CTR under 2%**. These pages are seen a lot but rarely clicked, so a better title and meta description could help. Store them in `low_ctr`.
+
+Remember: `ctr` is a fraction, so 2% is `0.02`.
+
+@@starter
+low_ctr = df   # change this to a filter
+
+print(len(low_ctr), "rows")
+low_ctr[["query", "page", "impressions", "ctr"]]
+
+@@hint
+`df[(df["impressions"] >= 5000) & (df["ctr"] < 0.02)]`
+
+@@solution
+low_ctr = df[(df["impressions"] >= 5000) & (df["ctr"] < 0.02)]
+
+print(len(low_ctr), "rows")
+low_ctr[["query", "page", "impressions", "ctr"]]
+
+@@check
+ref = pd.read_csv(io.StringIO(GSC_CSV))
+want = ref[(ref["impressions"] >= 5000) & (ref["ctr"] < 0.02)]
+assert isinstance(low_ctr, pd.DataFrame), "low_ctr should be a filtered DataFrame."
+assert len(low_ctr) != 0, "No rows found. Is the CTR written as 0.02 (a fraction) and not 2?"
+assert len(low_ctr) == len(want), f"Expected {len(want)} rows, but low_ctr has {len(low_ctr)}."
+assert sorted(low_ctr["query"]) == sorted(want["query"]), "The right number of rows, but not the right ones."
+
+@@bug Page-1 queries with a low CTR
+The AI wrote this filter for "page-1 queries with a CTR under 2%". It crashes. Read the error, then fix it.
+
+@@code
+page1_low_ctr = df[(df["position"] <= 10) and (df["ctr"] < 0.02)]
+
+print(len(page1_low_ctr), "queries need a better snippet")
+page1_low_ctr[["query", "position", "ctr"]]
+
+@@hint
+In pandas filters, the word `and` doesn't work. Which symbol means "and"?
+
+@@solution
+page1_low_ctr = df[(df["position"] <= 10) & (df["ctr"] < 0.02)]
+
+print(len(page1_low_ctr), "queries need a better snippet")
+page1_low_ctr[["query", "position", "ctr"]]
+
+@@explain
+`and` works on **one** True/False value. A pandas condition is a whole **column** of True/False values, so Python asks "is this whole column True?" and can't answer. That is the "truth value of a Series is ambiguous" error. `&` compares row by row. Keep the brackets around each condition.
+
+@@check
+ref = pd.read_csv(io.StringIO(GSC_CSV))
+want = ref[(ref["position"] <= 10) & (ref["ctr"] < 0.02)]
+assert len(page1_low_ctr) == len(want), f"Expected {len(want)} rows."
+assert sorted(page1_low_ctr["query"]) == sorted(want["query"]), "Not the right rows yet."
+
+@@tip
+When AI writes a filter, ask it to **print the number of rows before and after each filter**. If a filter keeps 0 rows or all rows, something is wrong, very often a fraction vs percentage mix-up (`ctr < 2` keeps everything). If you see `and` / `or` in a pandas filter, that is the bug from this lesson.
+
+@@quiz
+Which filter correctly keeps rows with more than 1,000 impressions **or** a position of 3 or better?
+@@option
+`df[df["impressions"] > 1000 or df["position"] <= 3]`
+@@option*
+`df[(df["impressions"] > 1000) | (df["position"] <= 3)]`
+@@option
+`df[(df["impressions"] > 1000) & (df["position"] <= 3)]`
+@@option
+`df["impressions"] > 1000 | df["position"] <= 3`
+@@explain
+Use `|` for "or" in pandas, with brackets around each condition. `or` gives the ambiguous error, `&` means "and", and the last option has no brackets and isn't inside `df[ ]`.
+
+@@lesson Sorting and adding new columns
+@@text
+`sort_values("column")` sorts from small to big. Add `ascending=False` to sort from big to small. Like every pandas step, it gives you a **new** DataFrame, so save it or show it.
+
+@@example Top queries by clicks
+top = df.sort_values("clicks", ascending=False)
+top[["query", "clicks", "impressions"]].head(5)
+
+@@text
+To add a column, assign to a new name. Maths works on the whole column at once, row by row. No loop needed.
+
+@@example New columns from maths
+df["ctr_pct"] = (df["ctr"] * 100).round(2)
+
+# A rough estimate: extra clicks if the CTR reached 3%. Real CTR also depends on position.
+df["extra_clicks_at_3pct"] = (df["impressions"] * 0.03 - df["clicks"]).clip(lower=0).round()
+
+df.sort_values("extra_clicks_at_3pct", ascending=False)[["query", "ctr_pct", "extra_clicks_at_3pct"]].head()
+
+@@text
+For a rule that needs `if` / `elif`, write a function and use **`.apply()`**. It runs your function on every value in a column.
+
+The `classify_intent()` function from Module 4 is already loaded in this module:
+
+```
+def classify_intent(keyword):
+    words = keyword.lower().split()
+    # brand words -> "navigational", info words -> "informational",
+    # commercial words -> "commercial", otherwise "unknown"
+```
+
+@@example An intent column with apply
+df["intent"] = df["query"].apply(classify_intent)
+
+print(df["intent"].value_counts())     # how many rows of each intent
+df[["query", "intent"]].head(8)
+
+@@exercise A position-group column
+Finish the function `position_group(position)` so it returns:
+
+- `"Top 3"` for positions up to 3
+- `"Page 1"` for positions up to 10
+- `"Page 2"` for positions up to 20
+- `"Page 3+"` for anything higher
+
+The starter already adds the column with `apply`.
+
+@@starter
+def position_group(position):
+    # return "Top 3", "Page 1", "Page 2" or "Page 3+"
+    return "Page 3+"
+
+df["position_group"] = df["position"].apply(position_group)
+df["position_group"].value_counts()
+
+@@hint
+```
+    if position <= 3:
+        return "Top 3"
+    elif position <= 10:
+        return "Page 1"
+    elif ...
+```
+
+@@solution
+def position_group(position):
+    if position <= 3:
+        return "Top 3"
+    elif position <= 10:
+        return "Page 1"
+    elif position <= 20:
+        return "Page 2"
+    else:
+        return "Page 3+"
+
+df["position_group"] = df["position"].apply(position_group)
+df["position_group"].value_counts()
+
+@@check
+assert position_group(2.8) == "Top 3" and position_group(3) == "Top 3", "Position 3 or better should be 'Top 3'."
+assert position_group(3.4) == "Page 1" and position_group(10) == "Page 1", "Positions above 3 and up to 10 should be 'Page 1'."
+assert position_group(12.6) == "Page 2" and position_group(20) == "Page 2", "Positions above 10 and up to 20 should be 'Page 2'."
+assert position_group(21.3) == "Page 3+", "Positions above 20 should be 'Page 3+'."
+assert "position_group" in df.columns, "Keep the line that adds the position_group column."
+
+@@exercise Top 5 non-brand opportunities
+Make `top5`: the **5 non-brand rows with the most impressions**. Non-brand means the `intent` column is not `"navigational"`. The intent column is added for you in the first line.
+
+@@starter
+df["intent"] = df["query"].apply(classify_intent)
+
+top5 = df.head(5)   # change this
+
+top5[["query", "impressions", "ctr", "position"]]
+
+@@hint
+Filter first with `df[df["intent"] != "navigational"]`, then `.sort_values("impressions", ascending=False)`, then `.head(5)`. You can chain them on one line.
+
+@@solution
+df["intent"] = df["query"].apply(classify_intent)
+
+top5 = df[df["intent"] != "navigational"].sort_values("impressions", ascending=False).head(5)
+
+top5[["query", "impressions", "ctr", "position"]]
+
+@@check
+assert len(top5) == 5, f"top5 should have 5 rows, but has {len(top5)}."
+assert not top5["query"].str.contains("sweat").any(), "top5 still has brand queries. Filter out navigational intent."
+assert top5["query"].tolist() == ["treadmill singapore", "dumbbells singapore", "yoga mat singapore", "home gym singapore", "adjustable dumbbells singapore"], f"Not the right 5 rows, or not sorted by impressions from high to low. You have {top5['query'].tolist()}"
+
+@@tip
+After AI adds a column with `apply`, ask it to show **`value_counts()`** for the new column and **10 random rows** (`df.sample(10)`). If 90% of rows say "unknown", or one label is missing, the rules don't fit your data. Also check that sorting uses `ascending=False` when you want the biggest first. Forgetting it gives you the smallest rows, with no error.
+
+@@quiz
+What does `df.sort_values("clicks")` do if you don't add anything else?
+@@option
+Sorts from most clicks to fewest
+@@option*
+Sorts from fewest clicks to most
+@@option
+Changes `df` itself
+@@option
+Removes rows with no clicks
+@@explain
+The default is ascending: smallest first. Add `ascending=False` for the biggest first. It also returns a new DataFrame. `df` itself stays the same unless you save the result.
+
+@@lesson groupby: summarise like a pivot table
+@@text
+`groupby` works like a pivot table: put rows into groups, then calculate something for each group.
+
+`df.groupby("page")[["clicks", "impressions"]].sum()` means: "for each page, add up clicks and impressions".
+
+**Important:** after grouping, **calculate CTR again** from the summed clicks and impressions. Don't add up or average the `ctr` column.
+
+@@example Clicks and impressions per page
+by_page = df.groupby("page")[["clicks", "impressions"]].sum()
+by_page["ctr"] = by_page["clicks"] / by_page["impressions"]
+
+by_page.sort_values("impressions", ascending=False)
+
+@@text
+`.agg()` lets you make several summaries at once, each with its own name. `reset_index()` turns the group names back into a normal column, which is easier for merging and exporting.
+
+@@example Several summaries with agg
+by_page = df.groupby("page").agg(
+    queries=("query", "count"),
+    clicks=("clicks", "sum"),
+    impressions=("impressions", "sum"),
+    best_position=("position", "min"),
+).reset_index()
+
+by_page.sort_values("clicks", ascending=False).head(6)
+
+@@text
+groupby also finds **keyword cannibalisation**: one query where more than one of your pages gets impressions.
+
+@@example Queries with more than one page
+pages_per_query = df.groupby("query")["page"].nunique()
+cannibal = pages_per_query[pages_per_query > 1]
+print(cannibal)
+
+df[df["query"].isin(cannibal.index)][["query", "page", "impressions", "position"]]
+
+@@exercise Pages to fix first
+Find the **pages** (not rows) with at least **10,000 impressions in total** and a **page CTR under 2%**.
+
+1. Group by `page` and add up `clicks` and `impressions`.
+2. Calculate `ctr` from those totals.
+3. Filter, and store the result in `fix_first`.
+
+@@starter
+by_page = df.groupby("page")[["clicks", "impressions"]].sum()
+# step 2: add a ctr column calculated from the totals
+
+# step 3: filter
+fix_first = by_page
+
+fix_first
+
+@@hint
+`by_page["ctr"] = by_page["clicks"] / by_page["impressions"]`, then `fix_first = by_page[(by_page["impressions"] >= 10000) & (by_page["ctr"] < 0.02)]`.
+
+@@solution
+by_page = df.groupby("page")[["clicks", "impressions"]].sum()
+by_page["ctr"] = by_page["clicks"] / by_page["impressions"]
+
+fix_first = by_page[(by_page["impressions"] >= 10000) & (by_page["ctr"] < 0.02)]
+
+fix_first
+
+@@check
+ref = pd.read_csv(io.StringIO(GSC_CSV))
+g = ref.groupby("page")[["clicks", "impressions"]].sum()
+g["ctr"] = g["clicks"] / g["impressions"]
+want = sorted(g[(g["impressions"] >= 10000) & (g["ctr"] < 0.02)].index)
+pages = sorted(fix_first["page"]) if "page" in fix_first.columns else sorted(fix_first.index)
+assert len(pages) == len(want), f"Expected {len(want)} pages, but fix_first has {len(pages)}."
+assert pages == want, f"Not the right pages. Expected: {want}"
+
+@@exercise Clicks by intent
+Add the intent column, then use `groupby` to add up **clicks for each intent**. Store the result in `intent_clicks`, sorted from most clicks to fewest.
+
+@@starter
+df["intent"] = df["query"].apply(classify_intent)
+
+intent_clicks = None
+
+intent_clicks
+
+@@hint
+`df.groupby("intent")["clicks"].sum().sort_values(ascending=False)`
+
+@@solution
+df["intent"] = df["query"].apply(classify_intent)
+
+intent_clicks = df.groupby("intent")["clicks"].sum().sort_values(ascending=False)
+
+intent_clicks
+
+@@check
+ref = pd.read_csv(io.StringIO(GSC_CSV))
+ref["intent"] = ref["query"].apply(classify_intent)
+want = ref.groupby("intent")["clicks"].sum().sort_values(ascending=False)
+assert intent_clicks is not None, "Set intent_clicks."
+got = intent_clicks["clicks"] if isinstance(intent_clicks, pd.DataFrame) and "clicks" in intent_clicks.columns else intent_clicks
+if isinstance(got, pd.DataFrame) and "intent" in got.columns:
+    got = got.set_index("intent")["clicks"]
+assert list(got.index) == list(want.index), f"Expected the intents in this order: {list(want.index)}"
+assert list(got.values) == list(want.values), "The click totals don't match. Did you use .sum() on clicks?"
+
+@@tip
+Two things to check in AI-written groupby code: **(1)** Is CTR recalculated from the summed clicks and impressions, or did it sum or average the `ctr` column? **(2)** Does the total still add up? `by_page["clicks"].sum()` should equal `df["clicks"].sum()`. If it doesn't, rows were lost or counted twice.
+
+@@quiz
+After `df.groupby("page")[["clicks", "impressions"]].sum()`, what is the right way to get each page's CTR?
+@@option
+Sum the `ctr` column in the groupby
+@@option
+Take the mean of the `ctr` column in the groupby
+@@option*
+Divide the summed clicks by the summed impressions
+@@option
+Multiply clicks by position
+@@explain
+Page CTR is the page's total clicks divided by its total impressions. Adding up or averaging row CTRs gives a wrong number.
+
+@@lesson Merging Ahrefs data and exporting
+@@text
+`merge` works like VLOOKUP: it joins two tables on a shared column. Here you'll add Ahrefs search volume and keyword difficulty (KD) to the Search Console data.
+
+The Ahrefs-style export is stored in `AHREFS_CSV`. Look at it first. The column names are different from `df`'s.
+
+@@example Look at the Ahrefs export
+kw = pd.read_csv(io.StringIO(AHREFS_CSV))
+print(kw.shape)
+print(kw.columns.tolist())
+kw.head()
+
+@@text
+To merge, both tables need a column with the **same name** and the **same values**. Rename the Ahrefs columns first. Use `how="left"` to keep **every** Search Console row, even when Ahrefs has no data for it.
+
+Check the shape **before and after**. A left merge should never add rows. If it does, the other table has duplicates.
+
+@@example A first merge
+kw = pd.read_csv(io.StringIO(AHREFS_CSV))
+kw = kw.rename(columns={"Keyword": "query", "Volume": "volume", "KD": "kd"})
+
+print("Before:", df.shape)
+merged = df.merge(kw, on="query", how="left")
+print("After: ", merged.shape)    # more rows than before?!
+print("Missing volume:", merged["volume"].isna().sum(), "rows")
+
+@@text
+The table got **one row longer**, with no error. That is because `yoga mat singapore` is in the Ahrefs export **twice** (it was exported from two keyword lists). The merge matched it twice and copied the Search Console row. Now its clicks would be counted twice in any total.
+
+The fix: remove duplicates before merging, with `drop_duplicates(subset="query")`.
+
+`NaN` means "no value". Rows with `NaN` volume are queries Ahrefs didn't have. That is normal, but count them, so you know how much is missing.
+
+@@exercise A clean merge
+Merge the Ahrefs data into `df` **without adding rows**:
+
+1. Read `AHREFS_CSV` and rename the columns to `query`, `volume` and `kd`.
+2. Remove duplicate queries.
+3. Left-merge into `df` and store the result in `merged`.
+
+@@starter
+kw = pd.read_csv(io.StringIO(AHREFS_CSV))
+kw = kw.rename(columns={"Keyword": "query", "Volume": "volume", "KD": "kd"})
+# remove duplicates here
+
+merged = df.merge(kw, on="query", how="left")
+
+print(df.shape, "->", merged.shape)
+
+@@hint
+Add `kw = kw.drop_duplicates(subset="query")` before the merge.
+
+@@solution
+kw = pd.read_csv(io.StringIO(AHREFS_CSV))
+kw = kw.rename(columns={"Keyword": "query", "Volume": "volume", "KD": "kd"})
+kw = kw.drop_duplicates(subset="query")
+
+merged = df.merge(kw, on="query", how="left")
+
+print(df.shape, "->", merged.shape)
+
+@@check
+assert "volume" in merged.columns and "kd" in merged.columns, "merged should have volume and kd columns. Check the rename."
+assert len(merged) == 30, f"merged should have 30 rows, like df, but has {len(merged)}. Remove duplicates before merging."
+assert merged["volume"].notna().sum() == 23, "23 rows should have a volume. Did you use how='left'?"
+assert merged["clicks"].sum() == pd.read_csv(io.StringIO(GSC_CSV))["clicks"].sum(), "Total clicks changed during the merge."
+
+@@exercise Keyword opportunities
+Build `opportunities`: rows with a **volume of at least 500** and a **position from 4 to 15**, sorted by volume from high to low. Keep the columns `query`, `volume`, `kd`, `position` and `clicks`.
+
+The clean merge from the last exercise is already in the starter.
+
+@@starter
+kw = pd.read_csv(io.StringIO(AHREFS_CSV))
+kw = kw.rename(columns={"Keyword": "query", "Volume": "volume", "KD": "kd"}).drop_duplicates(subset="query")
+merged = df.merge(kw, on="query", how="left")
+
+opportunities = merged   # change this
+
+opportunities
+
+@@hint
+Filter with `(merged["volume"] >= 500) & (merged["position"] >= 4) & (merged["position"] <= 15)`, then `.sort_values("volume", ascending=False)`, then select the columns with a list: `[["query", "volume", "kd", "position", "clicks"]]`.
+
+@@solution
+kw = pd.read_csv(io.StringIO(AHREFS_CSV))
+kw = kw.rename(columns={"Keyword": "query", "Volume": "volume", "KD": "kd"}).drop_duplicates(subset="query")
+merged = df.merge(kw, on="query", how="left")
+
+opportunities = merged[(merged["volume"] >= 500) & (merged["position"] >= 4) & (merged["position"] <= 15)]
+opportunities = opportunities.sort_values("volume", ascending=False)
+opportunities = opportunities[["query", "volume", "kd", "position", "clicks"]]
+
+opportunities
+
+@@check
+assert list(opportunities.columns) == ["query", "volume", "kd", "position", "clicks"], f"Keep exactly these columns, in this order: query, volume, kd, position, clicks. You have {list(opportunities.columns)}"
+assert opportunities["volume"].is_monotonic_decreasing, "Sort by volume from high to low (ascending=False)."
+assert sorted(opportunities["query"]) == sorted(["resistance band exercises", "treadmill singapore", "dumbbells singapore", "home gym singapore", "how to use resistance bands", "adjustable dumbbells singapore", "kettlebell workout for beginners", "foldable treadmill singapore", "spin bike singapore", "home gym equipment singapore", "kettlebell singapore"]), f"Not the right rows yet: expected 11 rows, you have {len(opportunities)}. Check volume >= 500 and position from 4 to 15."
+
+@@text
+### Exporting your results
+`to_csv()` saves a DataFrame as a CSV file. Use `index=False`, otherwise pandas adds an extra column of row numbers. In this browser there's no folder to save into, so here we just turn it into text and show the start of it:
+
+@@example to_csv
+report = df[df["impressions"] >= 5000][["query", "page", "clicks", "impressions", "ctr"]]
+
+csv_text = report.to_csv(index=False)
+print(csv_text[:400])
+
+@@colab Upload your own Search Console export, clean it and download the result
+In Colab you can use your **real** data. Download a Search Console performance export (Search results → Export → Download CSV). It comes as a zip file with several CSVs. Unzip it, then upload `Queries.csv` when the code asks.
+
+@@code
+import pandas as pd
+from google.colab import files
+
+uploaded = files.upload()                 # choose Queries.csv from your Search Console export
+filename = list(uploaded.keys())[0]
+
+df = pd.read_csv(filename)
+print(df.shape)
+print(df.columns.tolist())                # check the real column names before you do anything else
+
+# The website export uses different names, and CTR is text like "2.46%"
+df = df.rename(columns={"Top queries": "query", "Clicks": "clicks",
+                        "Impressions": "impressions", "CTR": "ctr", "Position": "position"})
+df["ctr"] = df["ctr"].astype(str).str.rstrip("%").astype(float) / 100
+
+low_ctr = df[(df["impressions"] >= 1000) & (df["ctr"] < 0.02)].sort_values("impressions", ascending=False)
+print(len(low_ctr), "queries with 1,000+ impressions and CTR under 2%")
+
+low_ctr.to_csv("low_ctr_queries.csv", index=False)
+files.download("low_ctr_queries.csv")
+
+@@tip
+For merges, ask the AI to **print the number of rows before and after, and the number of unmatched rows**. A left merge that adds rows means duplicates. A merge that suddenly finds almost no matches usually means the values differ slightly: capitals, spaces at the end, or `https://` vs `http://`. A cleaning step like `kw["query"] = kw["query"].str.lower().str.strip()` on both sides often fixes it.
+
+@@quiz
+After a left merge, your table has 30 rows before and 34 rows after. What is the most likely reason?
+@@option
+The merge worked perfectly
+@@option
+Some queries had no match
+@@option*
+The second table has duplicate keys, so some rows were copied
+@@option
+pandas added 4 summary rows
+@@explain
+A left merge keeps each left row once per match. If a keyword appears twice in the second table, that row appears twice. Unmatched rows don't add rows, they just get `NaN`. Run `drop_duplicates` on the key first.
